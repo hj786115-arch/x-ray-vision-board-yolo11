@@ -13,6 +13,8 @@ Import `hj786115-arch/x-ray-vision-board-yolo11` into a **new** Hobby project us
 
 `backend/vercel_main.py` mounts the existing API under that prefix and preserves its startup/shutdown lifecycle. The original API entry point and Hugging Face Dockerfile still work for separate hosting. No browser CORS workaround or old-backend URL is required.
 
+The first Vercel build rejected the original TanStack Start dependency for [GHSA-qx66-fv34-fjm8](https://github.com/TanStack/router/security/advisories/GHSA-qx66-fv34-fjm8). This clone uses the official patched `@tanstack/react-start@1.168.60` and its patched server-core dependency. The security check remains enabled; application screens are unchanged.
+
 The container installs CPU-only PyTorch, verifies the pinned YOLO11 download, and caches the three existing classifiers during the build. All four vision models remain enabled. Models load into memory when needed, rather than simultaneously at startup. No paid inference endpoint is used. Vercel Hobby resource/usage limits still apply and must be checked against the deployed workload.
 
 ### Required environment variables
