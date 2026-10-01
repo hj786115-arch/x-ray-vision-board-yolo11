@@ -77,7 +77,7 @@ async function validateImageFile(
 const types = [
   { id: "auto", labelKey: "an.type.auto", textKey: "an.type.autoText", modelKey: "an.type.autoModel", icon: Sparkles },
   { id: "chest", labelKey: "an.type.chest", textKey: "an.type.chestText", model: "DenseNet121", icon: Stethoscope },
-  { id: "fracture", labelKey: "an.type.fracture", textKey: "an.type.fractureText", model: "YOLOv8", icon: Bone },
+  { id: "fracture", labelKey: "an.type.fracture", textKey: "an.type.fractureText", model: "YOLO11", icon: Bone },
   { id: "wound", labelKey: "an.type.wound", textKey: "an.type.woundText", model: "ViT", icon: Activity },
 ] as const satisfies readonly {
   id: string; labelKey: StringKey; textKey: StringKey; model?: string; modelKey?: StringKey; icon: typeof Bone;

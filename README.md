@@ -19,7 +19,7 @@
 
 [![Deployment](https://img.shields.io/badge/Backend-Hugging_Face_Spaces-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co/spaces)
 [![PyTorch](https://img.shields.io/badge/PyTorch-DenseNet121-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org)
-[![YOLOv8](https://img.shields.io/badge/Ultralytics-YOLOv8-00BFFF?style=flat-square)](https://ultralytics.com)
+[![YOLO11](https://img.shields.io/badge/Ultralytics-YOLO11-00BFFF?style=flat-square)](https://ultralytics.com)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-ViT-FFD21E?style=flat-square&logo=huggingface&logoColor=black)](https://huggingface.co)
 [![OpenRouter](https://img.shields.io/badge/OpenRouter-GLM_4.5_Air-6B46C1?style=flat-square)](https://openrouter.ai)
 
@@ -29,13 +29,23 @@
 
 ---
 
+## YOLO11 clone: setup and validation
+
+Complete source imported from `ZohaibCodez/x-ray-vision-board` with scoped fracture model and box-display changes. The original repository, UI design and other model implementations are unchanged. New findings are in English. The Live Demo link above is the original deployment.
+
+- [Deploy this clone: backend first, then Vercel](docs/YOLO11_DEPLOYMENT.md)
+- [Changes and verification](docs/YOLO11_REVIEW.md)
+- [Two clean labelled X-ray tests and actual results](docs/YOLO11_CLEAN_TESTS.md)
+
+**Accuracy limitation:** neither clean test image was correctly localized by this checkpoint. Build and rendering checks passed, but improved fracture accuracy is unproven. No boxes are fabricated for missed detections.
+
 ## 📌 What is XRayVision AI?
 
 **XRayVision AI** is a full-stack web application that allows medical students, radiologists, and healthcare professionals to upload medical images and receive an **AI-powered diagnostic report in seconds**.
 
 The system uses a **Hybrid Multi-Model Ensemble**:
 - 🫁 **DenseNet121** — detects 18 chest pathologies (trained on 700K+ clinical X-rays)
-- 🦴 **YOLOv8** — localises fractures with bounding boxes drawn on the image
+- 🦴 **YOLO11** — localises fractures with bounding boxes drawn on the image
 - 🩹 **ViT (Vision Transformer)** — classifies external wounds into 6 categories
 - 🤖 **GLM 4.5 Air (LLM)** — synthesizes all model findings into a clinical paragraph
 
@@ -51,7 +61,7 @@ Built as a **Final Year Project (FYP)** at Minhaj University Lahore — BSSE 8th
 
 ### 🔬 Diagnostics
 - **Chest X-Ray Analysis** — 18 pathologies with ICD-10 codes (Pneumonia, Atelectasis, Effusion, Cardiomegaly...)
-- **Fracture Detection** — YOLOv8 bounding boxes + optional image-level classifier
+- **Fracture Detection** — YOLO11 bounding boxes + optional image-level classifier
 - **Wound Classification** — Pressure ulcer, venous ulcer, diabetic foot, traumatic wound, and more
 - **AI Clinical Reports** — Urgency rating (critical/high/medium/low/clear), recommended actions, specialist referral
 - **DICOM Support** — Accepts standard medical DICOM files alongside JPG/PNG
@@ -89,7 +99,7 @@ Built as a **Final Year Project (FYP)** at Minhaj University Lahore — BSSE 8th
 └──────┬────────────┬─────────────┬───────────────┬────────────┘
        │            │             │               │
 ┌──────▼──┐  ┌──────▼──┐  ┌──────▼──┐  ┌────────▼──────┐
-│DenseNet │  │ YOLOv8  │  │   ViT   │  │  OpenRouter   │
+│DenseNet │  │ YOLO11  │  │   ViT   │  │  OpenRouter   │
 │  (18    │  │(Fracture│  │ (Wound  │  │  GLM 4.5 Air  │
 │ labels) │  │  bbox)  │  │  6cls)  │  │  (Synthesis)  │
 └─────────┘  └─────────┘  └─────────┘  └───────────────┘
@@ -113,13 +123,13 @@ Built as a **Final Year Project (FYP)** at Minhaj University Lahore — BSSE 8th
 | Supabase account | — | Free tier works |
 | OpenRouter API key | — | Free tier (GLM 4.5 Air is free) |
 | Hugging Face token | — | For ViT model download |
-| YOLO weights | — | `fracture_yolov8.pt` in `backend/models/` |
+| YOLO weights | — | `fracture_yolo11.onnx` in `backend/models/` |
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/ZohaibCodez/x-ray-vision-board.git
-cd x-ray-vision-board
+git clone https://github.com/hj786115-arch/x-ray-vision-board-yolo11.git
+cd x-ray-vision-board-yolo11
 ```
 
 ### 2. Frontend Setup
@@ -152,6 +162,9 @@ pip install -r requirements.txt
 # Configure environment
 cp .env.example .env
 # Fill in your keys (see Environment Variables section below)
+
+# Download and verify the pinned YOLO11 fracture model
+python download_fracture_model.py
 
 # Start the server
 uvicorn app.main:app --reload --port 8000
@@ -192,7 +205,10 @@ JWT_SECRET=your-minimum-32-char-random-secret
 HF_TOKEN=hf_...
 
 # AI Models
-YOLO_WEIGHTS_PATH=models/fracture_yolov8.pt
+YOLO_WEIGHTS_PATH=models/fracture_yolo11.onnx
+YOLO_MODEL_NAME=YOLO11
+YOLO_IMAGE_SIZE=640
+FRACTURE_CONFIDENCE_THRESHOLD=0.40
 CONFIDENCE_THRESHOLD=0.40
 
 # CORS
@@ -285,7 +301,7 @@ curl -X POST "http://localhost:8000/analyze" \
 | Model | Source | Task | Input | Threshold |
 |-------|--------|------|-------|-----------|
 | **DenseNet121** | TorchXRayVision | 18 chest pathologies | 224×224 grayscale | 60% |
-| **YOLOv8** | Ultralytics (custom trained) | Fracture bounding boxes | Original size BGR | 15% |
+| **YOLO11n ONNX** | Jesteban247/yolo11-fracture-onnx | Fracture bounding boxes | Original image, letterboxed to 640 | 40% |
 | **ViT** | `PayamFard123/dermaintel-wound-classifier` | 6 wound types | RGB PIL Image | Top-1 |
 | **GLM 4.5 Air** | OpenRouter (z-ai/glm-4.5-air:free) | Clinical report synthesis | Structured prompt | — |
 
@@ -379,7 +395,7 @@ x-ray-vision-board/
 │       ├── services/
 │       │   ├── image_preprocess.py  # CLAHE, resize, DICOM support
 │       │   ├── chest_model.py       # DenseNet121 inference
-│       │   ├── fracture_model.py    # YOLOv8 inference
+│       │   ├── fracture_model.py    # YOLO11 inference
 │       │   ├── wound_model.py       # ViT wound classifier
 │       │   ├── openrouter_agent.py  # LLM synthesis engine
 │       │   ├── chatbot_service.py   # Chatbot (EN/UR system prompts)
@@ -445,7 +461,7 @@ This project is licensed under the **MIT License** — see [LICENSE](LICENSE) fo
 ## 🙏 Acknowledgements
 
 - [TorchXRayVision](https://github.com/mlmed/torchxrayvision) — DenseNet121 pretrained on clinical X-rays
-- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) — Object detection framework
+- [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics) — Object detection framework
 - [PayamFard123/dermaintel-wound-classifier](https://huggingface.co/PayamFard123/dermaintel-wound-classifier) — ViT wound classifier
 - [OpenRouter](https://openrouter.ai) — Free LLM API access (GLM 4.5 Air)
 - [Supabase](https://supabase.com) — Database, Auth, and Storage

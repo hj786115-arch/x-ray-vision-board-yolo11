@@ -31,7 +31,7 @@ async def dashboard_stats(user_id: str = Depends(get_current_user_id)):
     confs = stats.get("model_confidences", {})
     model_perf = [
         ModelPerformance(name="DenseNet121", task="Chest Pathology", auc=confs.get("DenseNet121", 0.0) / 100.0, color="bg-primary"),
-        ModelPerformance(name="YOLOv8", task="Fracture Detection", auc=confs.get("YOLOv8-Fracture", 0.0) / 100.0, color="bg-secondary"),
+        ModelPerformance(name="YOLO11", task="Fracture Detection", auc=confs.get("YOLO11", 0.0) / 100.0, color="bg-secondary"),
         ModelPerformance(name="ViT", task="Wound Classification", auc=confs.get("WoundClassifier", 0.0) / 100.0, color="bg-info"),
     ]
 

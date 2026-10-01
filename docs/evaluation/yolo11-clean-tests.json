@@ -1,0 +1,129 @@
+{
+  "manifest": {
+    "dataset": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg",
+    "revision": "c5c74eb4e6050d217f37a965666974e8cee39f8e",
+    "selection": "First two test images in alphabetical order with class 1 (fracture) labels; selected before inference.",
+    "images": [
+      {
+        "image": "118_jpg.rf.33edb8c0886863954b9301ba80a7d573.jpg",
+        "label": "118_jpg.rf.33edb8c0886863954b9301ba80a7d573.txt",
+        "source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/images/118_jpg.rf.33edb8c0886863954b9301ba80a7d573.jpg",
+        "label_source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/labels/118_jpg.rf.33edb8c0886863954b9301ba80a7d573.txt"
+      },
+      {
+        "image": "124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.jpg",
+        "label": "124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.txt",
+        "source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/images/124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.jpg",
+        "label_source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/labels/124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.txt"
+      }
+    ]
+  },
+  "confidence_threshold": 0.4,
+  "results": [
+    {
+      "image": "118_jpg.rf.33edb8c0886863954b9301ba80a7d573.jpg",
+      "label": "118_jpg.rf.33edb8c0886863954b9301ba80a7d573.txt",
+      "source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/images/118_jpg.rf.33edb8c0886863954b9301ba80a7d573.jpg",
+      "label_source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/labels/118_jpg.rf.33edb8c0886863954b9301ba80a7d573.txt",
+      "size": [
+        640,
+        640
+      ],
+      "ground_truth_xyxy": [
+        [
+          316.5,
+          412.5,
+          489.49999999999994,
+          462.5
+        ]
+      ],
+      "findings": [
+        {
+          "name": "No fracture box localized",
+          "confidence": 0.0,
+          "severity": "low",
+          "model": "YOLO11",
+          "region": "Full image",
+          "icd_code": "",
+          "color": "warning"
+        }
+      ],
+      "predictions": []
+    },
+    {
+      "image": "124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.jpg",
+      "label": "124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.txt",
+      "source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/images/124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.jpg",
+      "label_source": "https://huggingface.co/datasets/LibreYOLO/bone-fracture-7fylg/resolve/c5c74eb4e6050d217f37a965666974e8cee39f8e/test/labels/124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.txt",
+      "size": [
+        640,
+        640
+      ],
+      "ground_truth_xyxy": [
+        [
+          475.74999999999994,
+          469.75,
+          497.25,
+          485.25
+        ]
+      ],
+      "findings": [
+        {
+          "name": "No fracture box localized",
+          "confidence": 0.0,
+          "severity": "low",
+          "model": "YOLO11",
+          "region": "Full image",
+          "icd_code": "",
+          "color": "warning"
+        }
+      ],
+      "predictions": []
+    }
+  ],
+  "low_threshold_diagnostic": [
+    {
+      "image": "118_jpg.rf.33edb8c0886863954b9301ba80a7d573.jpg",
+      "boxes": [
+        [
+          293.03546142578125,
+          524.3492431640625,
+          492.68170166015625,
+          597.5992431640625,
+          0.33820775151252747,
+          0.0
+        ]
+      ]
+    },
+    {
+      "image": "124_jpg.rf.18d4b52cb019bc4639c057baf7e222c7.jpg",
+      "boxes": [
+        [
+          451.4492492675781,
+          428.982177734375,
+          500.4059753417969,
+          468.184326171875,
+          0.34040898084640503,
+          0.0
+        ],
+        [
+          236.54559326171875,
+          447.418701171875,
+          396.495849609375,
+          512.946533203125,
+          0.14953386783599854,
+          0.0
+        ],
+        [
+          266.08551025390625,
+          586.7135009765625,
+          367.5543212890625,
+          640.0,
+          0.06252127885818481,
+          0.0
+        ]
+      ]
+    }
+  ],
+  "interpretation": "0/2 annotated fracture regions localized at threshold 0.40. Predictions at 0.25 do not overlap either dataset label (IoU 0). Not a held-out accuracy benchmark."
+}

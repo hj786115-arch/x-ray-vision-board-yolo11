@@ -99,7 +99,7 @@ function Hero() {
         <div className="mt-9 grid max-w-2xl gap-3 sm:grid-cols-3">
           {[
             ["Chest", "DenseNet121"],
-            ["Fracture", "YOLOv8"],
+            ["Fracture", "YOLO11"],
             ["Wound", "ViT classifier"],
           ].map(([label, value]) => (
             <div key={label} className="clinical-panel p-4">

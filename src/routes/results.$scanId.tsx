@@ -4,6 +4,7 @@ import { Download, Share2, Sparkles, AlertTriangle, ZoomIn, ZoomOut, RotateCcw, 
 import { AppShell } from "@/components/app/AppShell";
 import { scansApi } from "@/lib/api";
 import { useScan } from "@/hooks/use-scans";
+import { selectBoxFindings } from "@/lib/fracture-boxes";
 import type { Finding as FindingType } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 
@@ -56,14 +57,7 @@ function ResultsPage() {
   const agent = scan.agent_synthesis;
   const lowConf = findings.some((f) => f.confidence < 60);
   const routing = scan.model_results?.routing as { note?: string | null } | undefined;
-  // Show one box, not one per finding — several overlapping boxes (a fracture
-  // box plus a hardware box plus a secondary finding) read as "the AI isn't
-  // sure", which is exactly the confusion this was meant to avoid. The single
-  // highest-confidence localized finding is the one worth pointing at.
-  const boxedFindings = findings.filter((f) => f.bbox);
-  const primaryBox = boxedFindings.length
-    ? boxedFindings.reduce((best, f) => (f.confidence > best.confidence ? f : best))
-    : null;
+  const boxedFindings = selectBoxFindings(findings, scan.scan_type);
 
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
@@ -140,8 +134,10 @@ function ResultsPage() {
                   }}
                 />
               )}
-              {showBoxes && primaryBox && (
+              {showBoxes && boxedFindings.map((primaryBox, index) => (
                   <div
+                    key={`${primaryBox.name}-${index}`}
+                    data-fracture-box={scan.scan_type === "fracture" ? "true" : undefined}
                     aria-label={`${term(primaryBox.name)}, ${primaryBox.confidence}%`}
                     className={`group absolute border-2 border-dashed animate-fade-up ${
                       primaryBox.color === "destructive" ? "border-destructive" : primaryBox.color === "warning" ? "border-warning" : "border-info"
@@ -153,7 +149,7 @@ function ResultsPage() {
                   >
                     {showLabels && (
                       <span
-                        className={`absolute -top-6 start-0 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-background ${
+                        className={`absolute -top-6 start-0 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-background ${
                           primaryBox.color === "destructive" ? "bg-destructive" : primaryBox.color === "warning" ? "bg-warning" : "bg-info"
                         }`}
                       >
@@ -161,7 +157,7 @@ function ResultsPage() {
                       </span>
                     )}
                   </div>
-                )}
+                ))}
               <div className="pointer-events-none absolute inset-0 overflow-hidden"><div className="scan-line" /></div>
             </div>
           </div>

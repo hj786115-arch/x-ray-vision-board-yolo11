@@ -27,7 +27,10 @@ pip install -r requirements.txt
 copy .env.example .env
 # Edit .env with your Supabase, OpenRouter, and Hugging Face keys
 
-# 4. Run the server
+# 4. Download the pinned fracture detector (no paid API required)
+python download_fracture_model.py
+
+# 5. Run the server
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -42,7 +45,7 @@ Once running, visit:
 | Model | Task | Input | Output |
 |-------|------|-------|--------|
 | TorchXRayVision DenseNet121 | Chest Pathology | 224×224 grayscale | 18 pathology probabilities |
-| YOLOv8 | Fracture Localization | Any size RGB | Positive fracture boxes only |
+| YOLO11 ONNX | Fracture Localization | Any size RGB | Positive fracture boxes only |
 | HF fracture classifier | Fracture Screening | 224x224 RGB | Image-level fracture/normal probability |
 | Wound-specific HF classifier | Wound Classification | 224×224 RGB | Classification labels |
 | OpenRouter GLM 4.5 Air | Agentic Synthesis | Model outputs + notes | Structured diagnostic report |
@@ -65,3 +68,7 @@ Fracture scans use a safer two-stage workflow:
 docker build -t xrayvision-backend .
 docker run -p 7860:7860 --env-file .env xrayvision-backend
 ```
+
+## YOLO11 deployment
+
+Set `YOLO_WEIGHTS_PATH=models/fracture_yolo11.onnx`, `YOLO_MODEL_NAME=YOLO11`, `YOLO_IMAGE_SIZE=640`, and `FRACTURE_CONFIDENCE_THRESHOLD=0.40`. Docker downloads and verifies the weights automatically. See `docs/YOLO11_DEPLOYMENT.md` in the full repository for the frontend/backend deployment sequence and the recorded accuracy limitations.

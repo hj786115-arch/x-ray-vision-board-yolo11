@@ -53,7 +53,10 @@ class Settings(BaseSettings):
     allowed_origins: str = ""
 
     # Model Config
-    yolo_weights_path: str = "models/fracture_yolov8.pt"
+    yolo_weights_path: str = "models/fracture_yolo11.onnx"
+    yolo_model_name: str = "YOLO11"
+    yolo_image_size: int = 640
+    fracture_confidence_threshold: float = 0.40
     allow_generic_yolo_weights: bool = False
     # Set FRACTURE_CLASSIFIER_ENABLED=false on low-RAM hosts (saves ~400 MB).
     fracture_classifier_enabled: bool = True
