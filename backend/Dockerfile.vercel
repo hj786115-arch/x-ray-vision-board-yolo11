@@ -1,0 +1,26 @@
+FROM python:3.11-slim-bookworm
+
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DISABLE_PRELOAD=true \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libsm6 libxrender1 libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# CPU wheels avoid installing several gigabytes of unused CUDA libraries.
+RUN pip install torch==2.14.1 torchvision==0.29.1 \
+    --index-url https://download.pytorch.org/whl/cpu
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+RUN python download_fracture_model.py
+# Cache the existing models at build time instead of downloading on first scan.
+RUN python scripts/cache_deployment_models.py
+
+EXPOSE 80
+CMD ["sh", "-c", "exec uvicorn vercel_main:app --host 0.0.0.0 --port ${PORT:-80}"]

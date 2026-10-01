@@ -203,6 +203,7 @@ vendor/
 # DOCKER
 # ============================================================================
 .dockerignore
+!backend/.dockerignore
 .docker/
 docker-compose.override.yml
 

@@ -4,7 +4,36 @@ This repository contains the complete original frontend and backend plus the fra
 
 **Validation status:** build, type checks and localization regression tests pass. Two additional labelled fracture X-rays were missed at the configured 0.40 threshold; lowering the threshold did not correctly match either annotation. This is an integration-ready research prototype, not a demonstrated accuracy upgrade. See [test evidence](YOLO11_CLEAN_TESTS.md).
 
-## 1. Deploy the Python backend
+## 1. Deploy the complete app on Vercel
+
+Import `hj786115-arch/x-ray-vision-board-yolo11` into a **new** Hobby project using the repository root and the **Services** preset. The root `vercel.json` defines:
+
+- `app`: the unchanged Vite/TanStack SPA, built to `dist/client` with `VITE_API_URL=/api`.
+- `backend`: the Python container built from `backend/Dockerfile.vercel`, reachable through `/api` on the same domain.
+
+`backend/vercel_main.py` mounts the existing API under that prefix and preserves its startup/shutdown lifecycle. The original API entry point and Hugging Face Dockerfile still work for separate hosting. No browser CORS workaround or old-backend URL is required.
+
+The container installs CPU-only PyTorch, verifies the pinned YOLO11 download, and caches the three existing classifiers during the build. All four vision models remain enabled. Models load into memory when needed, rather than simultaneously at startup. No paid inference endpoint is used. Vercel Hobby resource/usage limits still apply and must be checked against the deployed workload.
+
+### Required environment variables
+
+Add these in Vercel's environment settings before treating the deployment as functional. Use the **same Supabase project** as the existing application to retain its users, demo account, scan history, and storage.
+
+| Variable | Value/source |
+| --- | --- |
+| `SUPABASE_URL` | Existing Supabase project URL |
+| `SUPABASE_KEY` | Existing service-role/secret key; server only |
+| `SUPABASE_ANON_KEY` | Existing anonymous/publishable key used by Supabase Auth |
+| `JWT_SECRET` | A strong private random secret, entered in hosting settings |
+| `OPENROUTER_API_KEY` | Existing OpenRouter key for chat, diet, and report generation |
+| `FRONTEND_URL` | New production Vercel origin |
+| `OPENROUTER_SITE_URL` | New production Vercel origin |
+
+Do not prefix secrets with `VITE_`, commit them, or paste them in support chats. The frontend API URL is set by the build command, so no separate `VITE_API_URL` setting is needed. `PORT` can remain unset (the container listens on port 80); `DISABLE_PRELOAD=true` is set in the container without disabling any model.
+
+The Supabase schema is in `backend/supabase_schema.sql`. For an existing database, verify its tables and storage rather than blindly recreating them. A new empty database will not contain the existing demo login. A successful `/api/health` response only verifies the server, not database access.
+
+## 2. Optional separate Python hosting
 
 Use the existing backend hosting workflow. For a Hugging Face Docker Space, copy the contents of `backend/` into the Space root, including its Dockerfile and README. Keep the existing service secrets in hosting settings. The Docker build downloads and verifies the pinned YOLO11 weights automatically; no paid model API is needed. The download is approximately 10.6 MB. The ONNX file is intentionally not committed to Git.
 
@@ -32,18 +61,13 @@ python download_fracture_model.py
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-## 2. Deploy the frontend on Vercel
-
-1. Import `hj786115-arch/x-ray-vision-board-yolo11` into a new Vercel project.
-2. Use the repository root and its existing `vercel.json`. Build command: `npm run build`. Output directory: `dist/client`.
-3. Set `VITE_API_URL` to the new backend's public HTTPS URL before building. This variable is embedded at build time; redeploy after changing it.
-4. Deploy and confirm the new Vercel origin is allowed by the backend's CORS settings.
-
-Deploying only the frontend while keeping `VITE_API_URL` pointed at the old backend will still run the old detector. No existing Vercel or Hugging Face deployment has been changed by preparing this repository.
+The checked-in Vercel configuration deploys both services together. Separate hosting requires a frontend-only Vercel configuration, a build-time `VITE_API_URL` pointing at the **new** backend, and matching CORS origins. Pointing the frontend at the old backend would still run the old detector. Creating a new Hugging Face Space may require a paid account under current platform policy; do not assume a new free Space is available.
 
 ## 3. Verify the deployed flow
 
-Open the backend `/docs`, then sign in through the frontend and submit an X-ray with scan type **Fracture**. Confirm the returned `models_run` includes `YOLO11-Fracture`, inspect `model_errors`, and compare every visible box against the original image. An image-level classifier score does not establish fracture location. If YOLO cannot localize a fracture, the application intentionally returns no fabricated box.
+Open `/api/` and `/api/docs` on the Vercel domain. Confirm the API identifies YOLO11. Sign in through the frontend, including **Try demo account**, and submit an X-ray with scan type **Fracture**. Confirm the returned `models_run` includes `YOLO11-Fracture`, inspect `model_errors`, and compare every visible box against the original image. Reload the scan history and reopen the saved scan to verify real database and storage persistence. Also check the existing chest, wound, chat, and diet flows before declaring the full deployment verified.
+
+An image-level classifier score does not establish fracture location. If YOLO cannot localize a fracture, the application intentionally returns no fabricated box.
 
 To reproduce the recorded detector check, from `backend/` after setup:
 
