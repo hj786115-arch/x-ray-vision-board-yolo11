@@ -19,13 +19,13 @@ The container installs CPU-only PyTorch, verifies the pinned YOLO11 download, an
 
 ### Required environment variables
 
-Add these in Vercel's environment settings before treating the deployment as functional. Use the **same Supabase project** as the existing application to retain its users, demo account, scan history, and storage.
+Add these in Vercel's environment settings before treating the deployment as functional. This deployment uses the new **XRayVision-AI** Supabase project. Its demo user is provisioned separately with a confirmed email and matching profile; historical data from the original deployment is not migrated. To retain old users and history in another deployment, use that application's existing project instead.
 
 | Variable | Value/source |
 | --- | --- |
-| `SUPABASE_URL` | Existing Supabase project URL |
-| `SUPABASE_KEY` | Existing service-role/secret key; server only |
-| `SUPABASE_ANON_KEY` | Existing anonymous/publishable key used by Supabase Auth |
+| `SUPABASE_URL` | The selected Supabase project URL |
+| `SUPABASE_KEY` | That project's service-role key; server only |
+| `SUPABASE_ANON_KEY` | That project's anonymous key used by Supabase Auth |
 | `JWT_SECRET` | A strong private random secret, entered in hosting settings |
 | `OPENROUTER_API_KEY` | Existing OpenRouter key for chat, diet, and report generation |
 | `FRONTEND_URL` | New production Vercel origin |
@@ -33,7 +33,7 @@ Add these in Vercel's environment settings before treating the deployment as fun
 
 Do not prefix secrets with `VITE_`, commit them, or paste them in support chats. The frontend API URL is set by the build command, so no separate `VITE_API_URL` setting is needed. `PORT` can remain unset (the container listens on port 80); `DISABLE_PRELOAD=true` is set in the container without disabling any model.
 
-The Supabase schema is in `backend/supabase_schema.sql`. For an existing database, verify its tables and storage rather than blindly recreating them. A new empty database will not contain the existing demo login. A successful `/api/health` response only verifies the server, not database access.
+The Supabase schema is in `backend/supabase_schema.sql`. For an existing database, verify its tables and storage rather than blindly recreating them. It includes ownership-based RLS policies and explicit Data API grants. The existing backend registration route creates profiles, so the schema must not also create them through a duplicate insert trigger. For a fresh demo account, use Supabase's admin API with `email_confirm: true` and insert the matching profile; no demo mailbox is required. A successful `/api/health` response only verifies the server, not database access.
 
 ## 2. Optional separate Python hosting
 

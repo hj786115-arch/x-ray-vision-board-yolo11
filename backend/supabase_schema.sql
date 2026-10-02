@@ -58,32 +58,42 @@ ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Profiles
 CREATE POLICY "Users can view own profile"
-  ON profiles FOR SELECT USING (id = auth.uid());
+  ON profiles FOR SELECT TO authenticated USING (id = (SELECT auth.uid()));
 CREATE POLICY "Users can update own profile"
-  ON profiles FOR UPDATE USING (id = auth.uid());
-CREATE POLICY "Service role can insert profiles"
-  ON profiles FOR INSERT WITH CHECK (true);
+  ON profiles FOR UPDATE TO authenticated
+  USING (id = (SELECT auth.uid())) WITH CHECK (id = (SELECT auth.uid()));
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT TO authenticated WITH CHECK (id = (SELECT auth.uid()));
 
 -- Scans
 CREATE POLICY "Users can view own scans"
-  ON scans FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Service can insert scans"
-  ON scans FOR INSERT WITH CHECK (true);
+  ON scans FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()));
+CREATE POLICY "Users can insert own scans"
+  ON scans FOR INSERT TO authenticated WITH CHECK (user_id = (SELECT auth.uid()));
 CREATE POLICY "Users can delete own scans"
-  ON scans FOR DELETE USING (user_id = auth.uid());
+  ON scans FOR DELETE TO authenticated USING (user_id = (SELECT auth.uid()));
 
 -- Chat sessions
 CREATE POLICY "Users can view own chat sessions"
-  ON chat_sessions FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Service can insert chat sessions"
-  ON chat_sessions FOR INSERT WITH CHECK (true);
+  ON chat_sessions FOR SELECT TO authenticated USING (user_id = (SELECT auth.uid()));
+CREATE POLICY "Users can insert own chat sessions"
+  ON chat_sessions FOR INSERT TO authenticated WITH CHECK (user_id = (SELECT auth.uid()));
 
 -- Chat messages
 CREATE POLICY "Users can view own chat messages"
-  ON chat_messages FOR SELECT
-  USING (session_id IN (SELECT id FROM chat_sessions WHERE user_id = auth.uid()));
-CREATE POLICY "Service can insert chat messages"
-  ON chat_messages FOR INSERT WITH CHECK (true);
+  ON chat_messages FOR SELECT TO authenticated
+  USING (session_id IN (SELECT id FROM chat_sessions WHERE user_id = (SELECT auth.uid())));
+CREATE POLICY "Users can insert own chat messages"
+  ON chat_messages FOR INSERT TO authenticated
+  WITH CHECK (session_id IN (SELECT id FROM chat_sessions WHERE user_id = (SELECT auth.uid())));
+
+-- New Supabase projects may not grant Data API access automatically.
+-- The browser calls FastAPI; privileged keys remain on the server.
+REVOKE ALL ON profiles, scans, chat_sessions, chat_messages FROM anon;
+GRANT SELECT, INSERT, UPDATE ON profiles TO authenticated;
+GRANT SELECT, INSERT, DELETE ON scans TO authenticated;
+GRANT SELECT, INSERT ON chat_sessions, chat_messages TO authenticated;
+GRANT ALL ON profiles, scans, chat_sessions, chat_messages TO service_role;
 
 -- ============================================================
 -- Indexes for performance
@@ -95,23 +105,20 @@ CREATE INDEX IF NOT EXISTS idx_chat_sessions_user_id ON chat_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages(session_id);
 
 -- ============================================================
--- Auto-create profile on sign-up (trigger)
+-- Profile creation
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO profiles (id, full_name, role)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'User'),
-    COALESCE(NEW.raw_user_meta_data->>'role', 'Medical Student')
-  );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- FastAPI /auth/register already inserts profiles after Supabase signup.
+-- Do not add a second automatic insert trigger: that produces duplicate-key
+-- errors in the existing registration route. Admin-created demo users need
+-- an explicit matching profile as part of their provisioning step.
 
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+-- Supabase may provision this event-trigger function in new projects.
+-- It is infrastructure, not a callable application RPC.
+DO $$
+BEGIN
+  IF to_regprocedure('public.rls_auto_enable()') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
+  END IF;
+END
+$$;
