@@ -52,13 +52,38 @@ class ClinicTests(unittest.IsolatedAsyncioTestCase):
     async def test_partial_upstream_reply_is_not_empty_success(self):
         response=MagicMock()
         response.json.side_effect=[{'remark':'runtime error: timed out','elements':[]},{'elements':[]}]
-        client=MagicMock();client.post=AsyncMock(return_value=response)
+        client=MagicMock();client.get=AsyncMock(return_value=response)
         cm=MagicMock();cm.__aenter__=AsyncMock(return_value=client);cm.__aexit__=AsyncMock(return_value=False)
         with patch('app.routers.clinics.httpx.AsyncClient',return_value=cm):
             self.assertEqual(await clinics._fetch_overpass_elements(31.52,74.35,5000),[])
-            self.assertEqual(client.post.await_count,2)
+            self.assertEqual(client.get.await_count,2)
+            self.assertIn('out body center', client.get.call_args.kwargs['params']['data'])
             await clinics._fetch_overpass_elements(31.52,74.35,5000)
-            self.assertEqual(client.post.await_count,2)
+            self.assertEqual(client.get.await_count,2)
+
+    async def test_photon_preserves_coordinates_and_filters_non_healthcare(self):
+        feature={'properties':{'osm_key':'amenity','osm_value':'clinic','name':'Nearby clinic','street':'Test road'},
+                 'geometry':{'type':'Point','coordinates':[74.35,31.52]}}
+        invalid={'properties':{'osm_key':'shop','osm_value':'supermarket'},
+                 'geometry':{'type':'Point','coordinates':[74.35,31.52]}}
+        r=MagicMock();r.json.return_value={'features':[feature,invalid]}
+        c=MagicMock();c.get=AsyncMock(return_value=r)
+        cm=MagicMock();cm.__aenter__=AsyncMock(return_value=c);cm.__aexit__=AsyncMock(return_value=False)
+        with patch('app.routers.clinics.httpx.AsyncClient',return_value=cm):
+            elements=await clinics._fetch_photon_elements(31.52,74.35,5000)
+        results=clinics._parse_clinics(elements,31.52,74.35,5)
+        self.assertEqual(len(results),1)
+        self.assertEqual((results[0].lat,results[0].lon),(31.52,74.35))
+        self.assertEqual(results[0].address,'Test road')
+
+    async def test_nearby_provider_failure_falls_back_and_caches(self):
+        sample=[{'type':'node','lat':31.52,'lon':74.35,'tags':{'amenity':'clinic'}}]
+        with patch('app.routers.clinics._fetch_photon_elements',side_effect=httpx.ReadTimeout('timeout')) as primary, \
+             patch('app.routers.clinics._fetch_overpass_elements',return_value=sample) as backup:
+            self.assertEqual(await clinics._fetch_nearby_elements(31.52,74.35,5000),sample)
+            self.assertEqual(await clinics._fetch_nearby_elements(31.52,74.35,5000),sample)
+        self.assertEqual(primary.await_count,1)
+        self.assertEqual(backup.await_count,1)
 
     async def test_city_results_preserve_country_and_coordinates(self):
         r=MagicMock();r.json.return_value={'results':[{'name':'Lahore','country':'Pakistan','latitude':31.558,'longitude':74.35071}]}

@@ -103,6 +103,8 @@ def complete_chat(
     temperature: float = 0.2,
     max_tokens: int = 2048,
     reasoning: dict | None = None,
+    api_key: str | None = None,
+    models: list[str] | None = None,
 ) -> str:
     """Send a list of role/content messages and return the assistant text.
 
@@ -112,13 +114,14 @@ def complete_chat(
     complete answer should turn reasoning down and raise `max_tokens`.
     """
     settings = get_settings()
-    if not settings.openrouter_api_key:
+    configured_key = api_key or settings.openrouter_api_key
+    if not configured_key:
         raise OpenRouterError(
             "OPENROUTER_API_KEY is not configured.",
             "The AI service is not configured yet. Please add an OpenRouter API key.",
         )
 
-    models = _model_candidates()
+    models = (models or _model_candidates())[:MAX_MODELS]
     payload: dict = {
         "model": models[0],
         "messages": messages,
@@ -132,7 +135,7 @@ def complete_chat(
         payload["reasoning"] = reasoning
 
     headers = {
-        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Authorization": f"Bearer {configured_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": settings.openrouter_site_url,
         "X-Title": settings.openrouter_app_name,

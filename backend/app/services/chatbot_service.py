@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 
+from app.config import get_settings
 from app.services.openrouter_client import OpenRouterError, complete_chat
 from app.services.basic_health_guidance import basic_health_guidance
 
@@ -32,6 +33,9 @@ IMPORTANT RULES:
 - Be empathetic and clear in your responses.
 - If asked about medications, suggest consulting a pharmacist or doctor.
 - Keep responses short and simple: 2-4 short paragraphs at most.
+- Answer the latest question directly and use previous turns only as context.
+- If the user changes topic, address the new topic. Do not repeat a previous answer.
+- Ask one relevant follow-up question when information needed for safe advice is missing.
 
 LANGUAGE RULES:
 - Write in simple, everyday English that someone with no medical background understands.
@@ -55,6 +59,9 @@ SYSTEM_PROMPT_UR = """آپ XRayVision AI ہیلتھ اسسٹنٹ ہیں — پا
 - ہمیشہ یاد دلائیں کہ آپ AI اسسٹنٹ ہیں، حقیقی ڈاکٹر نہیں۔
 - سنگین علامات کے لیے ہمیشہ ہسپتال جانے کی سفارش کریں۔
 - جواب مختصر رکھیں — زیادہ سے زیادہ 2 سے 4 چھوٹے پیراگراف۔
+- تازہ سوال کا براہ راست جواب دیں، پچھلے پیغامات صرف سیاق و سباق کے لیے استعمال کریں۔
+- موضوع بدلنے پر نئے موضوع کا جواب دیں؛ پچھلا جواب نہ دہرائیں۔
+- محفوظ رہنمائی کے لیے ضروری معلومات کم ہوں تو ایک متعلقہ سوال پوچھیں۔
 
 زبان کے قواعد:
 - ہمیشہ صاف اور آسان اردو میں جواب دیں، ایسی اردو جو ہر عام آدمی سمجھ سکے۔
@@ -130,12 +137,15 @@ def chat_with_health_bot(
     messages.append({"role": "user", "content": message})
 
     try:
+        settings = get_settings()
         # See openrouter_agent.py for why `reasoning: exclude` matters here —
         # same JSON-parsing risk if GLM's chain of thought eats the token
         # budget before it reaches the actual structured reply.
         response_text = complete_chat(
             messages, temperature=0.35, max_tokens=1200,
             reasoning={"effort": "low", "exclude": True},
+            api_key=settings.health_chat_api_key or None,
+            models=[settings.health_chat_model],
         )
     except OpenRouterError as exc:
         logger.error("Chatbot unavailable: %s", exc)

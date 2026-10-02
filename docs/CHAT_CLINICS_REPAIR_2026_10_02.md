@@ -18,3 +18,11 @@ Full online Health Chat still requires a valid server-side `OPENROUTER_API_KEY`.
 23 backend tests passed, including existing fracture tests and the new chat/clinic cases. TypeScript and the frontend production build passed. Live release checks are performed after deployment.
 
 References: https://www.nhs.uk/symptoms/headaches/ ; https://www.nhs.uk/symptoms/fever-in-adults/ ; https://www.nhs.uk/symptoms/cough/ ; https://www.nhs.uk/conditions/sprains-and-strains/ ; https://open-meteo.com/en/docs/geocoding-api ; https://developers.google.com/maps/documentation/urls/get-started
+
+## Follow-up repair
+- Nearby healthcare now uses one category-filtered Photon reverse lookup with the requested GPS coordinates and radius. Responses are cached for 10 minutes and filtered/sorted by exact distance. Lahore and Karachi live provider checks returned 50 named listings each in about 9 seconds.
+- Overpass remains a fallback; its request now includes node coordinates (`out body center`) rather than tags-only output, and uses GET for the compact read-only query.
+- Health Chat accepts an optional server-only `HEALTH_CHAT_API_KEY` containing an OpenRouter API key. This enables chat without changing the shared key used by the working diet planner or scan synthesis. `HEALTH_CHAT_MODEL` defaults to `openrouter/free`.
+- English and Urdu prompts explicitly follow the latest question and topic changes. Actual AI verification still requires an authenticated OpenRouter account and a configured key.
+- Photon is a named-place search service, not an exhaustive medical directory. Existing Maps buttons remain available.
+- Provider reference: https://github.com/komoot/photon/blob/master/docs/api-v1.md

@@ -1,4 +1,4 @@
-"""Nearby clinic/hospital locator using OpenStreetMap Overpass API."""
+"""Nearby healthcare search using Photon and OpenStreetMap Overpass."""
 
 from __future__ import annotations
 
@@ -67,7 +67,7 @@ async def find_nearby_clinics(
 ):
     """Find hospitals, clinics, doctors, and pharmacies near the given GPS coordinates."""
     radius_m = int(radius_km * 1000)
-    elements = await _fetch_overpass_elements(lat, lon, radius_m)
+    elements = await _fetch_nearby_elements(lat, lon, radius_m)
     clinics = _parse_clinics(elements, lat, lon, radius_km)
 
     return ClinicSearchResponse(
@@ -75,6 +75,60 @@ async def find_nearby_clinics(
         total=len(clinics),
         search_location={"lat": lat, "lon": lon, "radius_km": radius_km},
     )
+
+
+async def _fetch_nearby_elements(lat: float, lon: float, radius_m: int) -> list[dict[str, Any]]:
+    key = ("nearby", round(lat, 5), round(lon, 5), radius_m)
+    cached = _cached(key)
+    if cached is not None:
+        return cached
+    try:
+        elements = await _fetch_photon_elements(lat, lon, radius_m)
+    except (httpx.HTTPError, ValueError, TypeError, KeyError) as exc:
+        logger.warning("Photon healthcare lookup unavailable: %s", type(exc).__name__)
+        elements = await _fetch_overpass_elements(lat, lon, radius_m)
+    _remember(key, elements)
+    return elements
+
+
+async def _fetch_photon_elements(lat: float, lon: float, radius_m: int) -> list[dict[str, Any]]:
+    # Photon documents category-filtered reverse lookup for nearby pharmacies.
+    # One bounded request returns named healthcare places, not an exhaustive census.
+    params = [("lat", str(lat)), ("lon", str(lon)), ("radius", str(radius_m / 1000)),
+              ("limit", "50"), ("lang", "en")]
+    params.extend(("osm_tag", "amenity:" + kind) for kind in
+                  ("hospital", "clinic", "doctors", "pharmacy", "health_centre"))
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(14.0, connect=6.0), follow_redirects=True,
+        headers={"User-Agent": "XRayVisionAI/2.2 (x-ray-vision-board-yolo11.vercel.app)"},
+    ) as client:
+        response = await client.get("https://photon.komoot.io/reverse", params=params)
+        response.raise_for_status()
+        payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get("features"), list):
+        raise ValueError("Invalid Photon healthcare response")
+    elements = []
+    for feature in payload["features"]:
+        props = feature.get("properties") or {}
+        geometry = feature.get("geometry") or {}
+        coords = geometry.get("coordinates") or []
+        kind = props.get("osm_value")
+        if props.get("osm_key") != "amenity" or kind not in AMENITY_LABELS:
+            continue
+        if geometry.get("type") != "Point" or len(coords) < 2:
+            continue
+        clon, clat = float(coords[0]), float(coords[1])
+        if not (-90 <= clat <= 90 and -180 <= clon <= 180):
+            continue
+        tags = {"name": props.get("name") or "Unnamed Facility", "amenity": kind}
+        for source, dest in (("housenumber", "housenumber"), ("street", "street"),
+                             ("district", "suburb"), ("city", "city"),
+                             ("state", "state"), ("country", "country")):
+            if props.get(source):
+                tags["addr:" + dest] = props[source]
+        elements.append({"type": "node", "id": props.get("osm_id"),
+                         "lat": clat, "lon": clon, "tags": tags})
+    return elements
 
 
 async def _fetch_overpass_elements(lat: float, lon: float, radius_m: int) -> list[dict[str, Any]]:
@@ -96,7 +150,7 @@ async def _fetch_overpass_elements(lat: float, lon: float, radius_m: int) -> lis
   nwr[amenity=pharmacy]({bounds});
   nwr[amenity=health_centre]({bounds});
 );
-out center tags 1000;
+out body center 1000;
 """
 
     last_error: str | None = None
@@ -107,7 +161,7 @@ out center tags 1000;
     ) as client:
         for endpoint in OVERPASS_ENDPOINTS:
             try:
-                response = await client.post(endpoint, data={"data": query})
+                response = await client.get(endpoint, params={"data": query})
                 response.raise_for_status()
                 payload = response.json()
                 if payload.get("remark") or not isinstance(payload.get("elements"), list):
@@ -139,9 +193,10 @@ def _parse_clinics(elements: list[dict[str, Any]], lat: float, lon: float, radiu
         if coords is None:
             continue
         clat, clon = coords
-        distance = round(_haversine(lat, lon, clat, clon), 2)
-        if distance > radius_km + 0.2:
+        exact_distance = _haversine(lat, lon, clat, clon)
+        if exact_distance > radius_km:
             continue
+        distance = round(exact_distance, 2)
 
         dedupe_key = (name.strip().lower(), round(clat, 4), round(clon, 4))
         if dedupe_key in seen:
