@@ -81,8 +81,12 @@ function ClinicsPage() {
   const [cityLoading, setCityLoading] = useState(false);
   const [cityChoices, setCityChoices] = useState<{ name: string; lat: number; lon: number }[]>([]);
   const [searchedRadius, setSearchedRadius] = useState(5);
-  const mapArea = location ? `${location.lat},${location.lon}` : cityQuery.trim();
-  const mapsLink = (kind: string) => `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query: mapArea ? `${kind} near ${mapArea}` : `${kind} near me` })}`;
+  const [selectedCityName, setSelectedCityName] = useState("");
+  const mapsLink = (kind: string) => {
+    if (location && !selectedCityName) return `https://www.google.com/maps/search/${encodeURIComponent(kind)}/@${location.lat},${location.lon},14z`;
+    const area = selectedCityName || cityQuery.trim();
+    return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query: area ? `${kind} in ${area}` : `${kind} near me` })}`;
+  };
 
   const searchCity = async () => {
     if (cityQuery.trim().length < 3) return;
@@ -126,6 +130,7 @@ function ClinicsPage() {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setLocation({ lat: latitude, lon: longitude });
+        setSelectedCityName("");
         setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         doSearch(latitude, longitude, radiusKm);
       },
@@ -170,7 +175,7 @@ function ClinicsPage() {
               <button type="submit" disabled={cityLoading || loading || cityQuery.trim().length < 3} className="clinical-button-secondary px-3 disabled:opacity-50">{cityLoading ? "Searching..." : "Find city"}</button>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">Use this if your browser cannot share location. City searches use the city center.</p>
-            {cityChoices.length > 0 && <div className="mt-2 space-y-1">{cityChoices.map((city) => <button key={`${city.lat},${city.lon}`} type="button" disabled={loading} className="block w-full rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary" onClick={() => { setLocation(city); setLocationName(city.name); setCityChoices([]); doSearch(city.lat, city.lon, radiusKm); }}>{city.name}</button>)}</div>}
+            {cityChoices.length > 0 && <div className="mt-2 space-y-1">{cityChoices.map((city) => <button key={`${city.lat},${city.lon}`} type="button" disabled={loading} className="block w-full rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary" onClick={() => { setLocation(city); setLocationName(city.name); setSelectedCityName(city.name); setCityChoices([]); doSearch(city.lat, city.lon, radiusKm); }}>{city.name}</button>)}</div>}
           </form>
 
           {/* Radius slider */}
