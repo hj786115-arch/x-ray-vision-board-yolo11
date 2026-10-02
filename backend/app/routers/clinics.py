@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from typing import Any
 
 import httpx
@@ -16,10 +17,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["clinics"])
 
 OVERPASS_ENDPOINTS = (
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://z.overpass-api.de/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
 )
+_cache: dict[tuple, tuple[float, list]] = {}
+
+
+def _cached(key: tuple):
+    item = _cache.get(key)
+    return item[1] if item and time.monotonic() - item[0] < 600 else None
+
+
+def _remember(key: tuple, value: list):
+    if len(_cache) >= 128:
+        _cache.pop(next(iter(_cache)))
+    _cache[key] = (time.monotonic(), value)
 
 AMENITY_LABELS = {
     "hospital": "Hospital",
@@ -66,22 +78,30 @@ async def find_nearby_clinics(
 
 
 async def _fetch_overpass_elements(lat: float, lon: float, radius_m: int) -> list[dict[str, Any]]:
+    key = (round(lat, 5), round(lon, 5), radius_m)
+    cached = _cached(key)
+    if cached is not None:
+        return cached
+    # A bounding-box index query avoids six repeated around-distance queries.
+    # Exact distance filtering and nearest-first sorting happen below.
+    lat_delta = radius_m / 110500
+    lon_delta = min(180, radius_m / (111320 * max(abs(math.cos(math.radians(lat))), 0.001)))
+    bounds = f"{max(-90,lat-lat_delta)},{max(-180,lon-lon_delta)},{min(90,lat+lat_delta)},{min(180,lon+lon_delta)}"
     query = f"""
-[out:json][timeout:25];
+[out:json][timeout:18];
 (
-  node["amenity"~"^(hospital|clinic|doctors|pharmacy|health_centre)$"](around:{radius_m},{lat},{lon});
-  way["amenity"~"^(hospital|clinic|doctors|pharmacy|health_centre)$"](around:{radius_m},{lat},{lon});
-  relation["amenity"~"^(hospital|clinic|doctors|pharmacy|health_centre)$"](around:{radius_m},{lat},{lon});
-  node["healthcare"~"^(hospital|clinic|doctor|pharmacy|centre|health_centre)$"](around:{radius_m},{lat},{lon});
-  way["healthcare"~"^(hospital|clinic|doctor|pharmacy|centre|health_centre)$"](around:{radius_m},{lat},{lon});
-  relation["healthcare"~"^(hospital|clinic|doctor|pharmacy|centre|health_centre)$"](around:{radius_m},{lat},{lon});
+  nwr[amenity=hospital]({bounds});
+  nwr[amenity=clinic]({bounds});
+  nwr[amenity=doctors]({bounds});
+  nwr[amenity=pharmacy]({bounds});
+  nwr[amenity=health_centre]({bounds});
 );
-out center 80;
+out center tags 1000;
 """
 
     last_error: str | None = None
     async with httpx.AsyncClient(
-        timeout=httpx.Timeout(30.0, connect=10.0),
+        timeout=httpx.Timeout(25.0, connect=8.0),
         headers={"User-Agent": "XRayVisionAI/2.1 educational clinic locator"},
         follow_redirects=True,
     ) as client:
@@ -90,7 +110,11 @@ out center 80;
                 response = await client.post(endpoint, data={"data": query})
                 response.raise_for_status()
                 payload = response.json()
-                return payload.get("elements", [])
+                if payload.get("remark") or not isinstance(payload.get("elements"), list):
+                    raise ValueError("Overpass returned an incomplete result")
+                elements = payload["elements"]
+                _remember(key, elements)
+                return elements
             except (httpx.TimeoutException, httpx.HTTPStatusError, httpx.TransportError, ValueError) as exc:
                 last_error = str(exc)
                 logger.warning("Overpass endpoint failed (%s): %s", endpoint, exc)
@@ -158,7 +182,35 @@ def _element_coords(element: dict[str, Any], fallback_lat: float, fallback_lon: 
         except (KeyError, TypeError, ValueError):
             pass
 
-    return fallback_lat, fallback_lon
+    # Missing coordinates must never create a fictional zero-distance clinic.
+    return None
+
+
+@router.get("/clinics/locations")
+async def search_clinic_locations(
+    query: str = Query(..., min_length=3, max_length=120),
+    _user_id: str = Depends(get_current_user_id),
+):
+    """User-triggered city/postcode lookup; no location permission needed."""
+    key = ("city", query.strip().lower())
+    cached = _cached(key)
+    if cached is not None:
+        return {"locations": cached}
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            r = await client.get("https://geocoding-api.open-meteo.com/v1/search", params={
+                "name": query.strip(), "count": 5, "language": "en", "format": "json",
+            })
+            r.raise_for_status()
+            locations = [{
+                "name": ", ".join(str(p) for p in (v.get("name"), v.get("admin1"), v.get("country")) if p),
+                "lat": v["latitude"], "lon": v["longitude"],
+            } for v in r.json().get("results", []) if "latitude" in v and "longitude" in v]
+            _remember(key, locations)
+            return {"locations": locations}
+    except (httpx.HTTPError, ValueError, KeyError) as exc:
+        logger.warning("City lookup unavailable: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="City search is temporarily unavailable. Use your location or open the Maps search below.") from exc
 
 
 def _address_from_tags(tags: dict[str, Any]) -> str:

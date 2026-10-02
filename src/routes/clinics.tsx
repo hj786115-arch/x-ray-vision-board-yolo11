@@ -77,13 +77,37 @@ function ClinicsPage() {
   const [radiusKm, setRadiusKm] = useState(5);
   const [location, setLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [locationName, setLocationName] = useState<string>("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [cityLoading, setCityLoading] = useState(false);
+  const [cityChoices, setCityChoices] = useState<{ name: string; lat: number; lon: number }[]>([]);
+  const [searchedRadius, setSearchedRadius] = useState(5);
+  const mapArea = location ? `${location.lat},${location.lon}` : cityQuery.trim();
+  const mapsLink = (kind: string) => `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query: mapArea ? `${kind} near ${mapArea}` : `${kind} near me` })}`;
+
+  const searchCity = async () => {
+    if (cityQuery.trim().length < 3) return;
+    setCityLoading(true);
+    setError(null);
+    setCityChoices([]);
+    try {
+      const result = await clinicApi.locations(cityQuery.trim());
+      setCityChoices(result.locations);
+      if (!result.locations.length) setError("City not found. Try a city with its country, such as Lahore, Pakistan, or use Maps below.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "City search is unavailable.");
+    } finally {
+      setCityLoading(false);
+    }
+  };
 
   const doSearch = useCallback(async (lat: number, lon: number, radius: number) => {
     setLoading(true);
     setError(null);
+    setClinics(null);
     try {
       const result = await clinicApi.search({ lat, lon, radius_km: radius });
       setClinics(result.clinics);
+      setSearchedRadius(radius);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t("cl.errFind"));
     } finally {
@@ -113,7 +137,7 @@ function ClinicsPage() {
           setError(t("cl.errLocate"));
         }
       },
-      { timeout: 10000 },
+      { timeout: 15000, maximumAge: 120000, enableHighAccuracy: false },
     );
   }, [radiusKm, doSearch, t]);
 
@@ -138,6 +162,16 @@ function ClinicsPage() {
               <p className="text-xs text-muted-foreground">{t("cl.sub")}</p>
             </div>
           </div>
+
+          <form className="mb-4" onSubmit={(event) => { event.preventDefault(); searchCity(); }}>
+            <label htmlFor="clinic-city" className="mb-1 block text-xs font-medium text-muted-foreground">Search by city or postal code</label>
+            <div className="flex gap-2">
+              <input id="clinic-city" value={cityQuery} onChange={(event) => { setCityQuery(event.target.value); setCityChoices([]); }} placeholder="Lahore, Pakistan" maxLength={120} className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm" />
+              <button type="submit" disabled={cityLoading || loading || cityQuery.trim().length < 3} className="clinical-button-secondary px-3 disabled:opacity-50">{cityLoading ? "Searching..." : "Find city"}</button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Use this if your browser cannot share location. City searches use the city center.</p>
+            {cityChoices.length > 0 && <div className="mt-2 space-y-1">{cityChoices.map((city) => <button key={`${city.lat},${city.lon}`} type="button" disabled={loading} className="block w-full rounded-lg border border-border px-3 py-2 text-left text-sm hover:border-primary" onClick={() => { setLocation(city); setLocationName(city.name); setCityChoices([]); doSearch(city.lat, city.lon, radiusKm); }}>{city.name}</button>)}</div>}
+          </form>
 
           {/* Radius slider */}
           <div className="mb-4">
@@ -192,6 +226,12 @@ function ClinicsPage() {
           )}
         </div>
 
+        <div className="clinical-panel p-4">
+          <p className="text-sm font-semibold">Live map search</p>
+          <p className="mt-1 text-xs text-muted-foreground">Open current listings and directions in Google Maps. This also works when the directory service is busy. Maps results may use a wider area than the radius below.</p>
+          <div className="mt-3 flex flex-wrap gap-2">{["Clinics", "Hospitals", "Pharmacies"].map((kind) => <a key={kind} href={mapsLink(kind)} target="_blank" rel="noopener noreferrer" className="clinical-button-secondary px-3 text-xs">{kind} on Maps <ExternalLink size={12} /></a>)}</div>
+        </div>
+
         {/* Error */}
         {error && (
           <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -225,7 +265,7 @@ function ClinicsPage() {
               <p className="text-sm font-medium text-foreground">
                 {clinics.length === 0
                   ? t("cl.none")
-                  : format("cl.count", { n: clinics.length, r: radiusKm })}
+                  : format("cl.count", { n: clinics.length, r: searchedRadius })}
               </p>
               <div className="flex gap-3 text-xs text-muted-foreground">
                 {hospitalCount > 0 && <span>{format("cl.hospitals", { n: hospitalCount }).replace("(s)", hospitalCount !== 1 ? "s" : "")}</span>}
@@ -260,6 +300,7 @@ function ClinicsPage() {
 
         <p className="text-center text-[11px] text-muted-foreground">
           {t("cl.credit")}
+          {" · City search: Open-Meteo / GeoNames"}
         </p>
       </div>
     </AppShell>

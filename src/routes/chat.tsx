@@ -25,7 +25,7 @@ export const Route = createFileRoute("/chat")({
 });
 
 /** A message plus the UI state the transcript needs to render it. */
-type Bubble = ChatMessage & { failed?: boolean };
+type Bubble = ChatMessage & { failed?: boolean; notice?: string | null; sources?: string[] };
 
 const suggestionKeys: { icon: typeof Home; key: StringKey }[] = [
   { icon: Stethoscope, key: "chat.suggest.1" },
@@ -73,7 +73,7 @@ function ChatPage() {
           // the failure is visible and retryable instead of looking like a reply.
           const failed = res.ok === false;
           if (failed) setLastFailedMessage(msg);
-          setMessages((prev) => [...prev, { role: "assistant", content: reply, failed }]);
+          setMessages((prev) => [...prev, { role: "assistant", content: reply, failed, notice: res.notice, sources: res.sources }]);
         },
         onError: (err) => {
           setLastFailedMessage(msg);
@@ -190,6 +190,8 @@ function ChatPage() {
                   </p>
                 )}
                 <p className="whitespace-pre-wrap">{msg.content}</p>
+                {msg.notice && <p className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">{msg.notice}</p>}
+                {msg.sources?.map((source) => <a key={source} href={source} target="_blank" rel="noopener noreferrer" className="mt-2 block text-xs text-primary underline">Read the NHS reference</a>)}
               </div>
             </div>
           ))}

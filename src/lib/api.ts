@@ -262,6 +262,9 @@ export const dietApi = {
 // ── Clinics API ───────────────────────────────────────────────────
 
 export const clinicApi = {
+  async locations(query: string): Promise<{ locations: { name: string; lat: number; lon: number }[] }> {
+    return request(`/clinics/locations?${new URLSearchParams({ query })}`);
+  },
   async search(params: {
     lat: number;
     lon: number;

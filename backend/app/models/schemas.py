@@ -129,6 +129,9 @@ class ChatResponse(BaseModel):
     # so the UI can show it instead of silently pretending the bot replied.
     ok: bool = True
     error: Optional[str] = None
+    mode: str = "online_ai"
+    notice: Optional[str] = None
+    sources: list[str] = []
 
 
 class ChatSession(BaseModel):

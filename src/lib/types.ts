@@ -88,6 +88,9 @@ export interface ChatResponse {
   /** False when the AI service could not be reached; `error` says why. */
   ok?: boolean;
   error?: string | null;
+  mode?: "online_ai" | "basic_guidance";
+  notice?: string | null;
+  sources?: string[];
 }
 
 export interface ChatSession {

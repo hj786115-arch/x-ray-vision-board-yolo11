@@ -12,6 +12,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from starlette.concurrency import run_in_threadpool
 from app.main import limiter
 from app.models.schemas import ChatRequest, ChatResponse, ChatSession
 from app.services.auth_service import get_current_user_id
@@ -90,7 +91,7 @@ async def send_message(
             logger.warning("Could not save user message: %s", exc)
             persisted = False
 
-    result = chat_with_health_bot(
+    result = await run_in_threadpool(chat_with_health_bot,
         message=message,
         conversation_history=history,
         language=req.language,
@@ -110,6 +111,9 @@ async def send_message(
         home_remedies=result.get("home_remedies", []),
         ok=bool(result.get("ok", True)),
         error=result.get("error"),
+        mode=result.get("mode", "online_ai"),
+        notice=result.get("notice"),
+        sources=result.get("sources", []),
     )
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 
 from app.services.openrouter_client import OpenRouterError, complete_chat
+from app.services.basic_health_guidance import basic_health_guidance
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ def chat_with_health_bot(
         False when the AI service could not be reached.
     """
     urdu = language == "ur"
+    original_message = message
     system_prompt = SYSTEM_PROMPT_UR if urdu else SYSTEM_PROMPT_EN
     output_format = OUTPUT_FORMAT_UR if urdu else OUTPUT_FORMAT_EN
 
@@ -137,13 +139,7 @@ def chat_with_health_bot(
         )
     except OpenRouterError as exc:
         logger.error("Chatbot unavailable: %s", exc)
-        return {
-            "reply": FALLBACK_REPLY_UR if urdu else FALLBACK_REPLY_EN,
-            "doctor_type": None,
-            "home_remedies": [],
-            "ok": False,
-            "error": exc.user_message,
-        }
+        return basic_health_guidance(original_message, conversation_history, language)
     except Exception as exc:  # noqa: BLE001 - never let the chat route 500
         logger.exception("Unexpected chatbot error: %s", exc)
         return {
@@ -156,6 +152,7 @@ def chat_with_health_bot(
 
     parsed = _parse_chat_response(response_text)
     parsed["ok"] = True
+    parsed["mode"] = "online_ai"
     return parsed
 
 
