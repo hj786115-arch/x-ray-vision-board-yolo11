@@ -163,7 +163,7 @@ function Dashboard() {
                       <td className="py-3 pe-4">{scan.findings_count}</td>
                       <td className="py-3 pe-4">
                         <span className={`rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${urgencyStyle[scan.urgency] || urgencyStyle.clear}`}>
-                          {term(scan.urgency)}
+                          {scan.scan_type === "fracture" && scan.urgency === "clear" ? "No fracture detected by AI" : scan.scan_type === "fracture" && scan.urgency === "review" ? "Review recommended" : term(scan.urgency)}
                         </span>
                       </td>
                       <td className="py-3 pe-4 text-xs text-muted-foreground">{formatDate(scan.created_at)}</td>

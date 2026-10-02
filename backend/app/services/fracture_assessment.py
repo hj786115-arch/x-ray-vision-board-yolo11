@@ -30,12 +30,40 @@ def fracture_assessment(findings: list[dict]) -> dict:
             ],
             "specialist": "Orthopedic Surgeon",
         }
+    detector_negative = any(
+        f.get("name") == "No fracture box localized"
+        and f.get("model") in ("YOLOv8-MultiRegion", "YOLO26-Wrist")
+        and not f.get("bbox")
+        for f in findings
+    )
+    # Require successful, explicit negative outputs from both models. A missing
+    # result, an unfamiliar classifier label, or a disagreement is not negative.
+    classifier_negative = bool(classifier) and all(
+        f.get("name") == "No fracture suspected by classifier" for f in classifier
+    )
+    if detector_negative and classifier_negative:
+        return {
+            # Existing storage code; the UI/PDF must label this as an AI result,
+            # never as a clinically normal X-ray or a measure of injury severity.
+            "urgency": "clear",
+            "synthesis_text": (
+                "No fracture detected by AI. The detector did not localize a fracture, "
+                "and the image classifier also returned a negative fracture result. "
+                "AI can miss subtle fractures; this does not confirm that the X-ray is normal "
+                "or exclude other injuries. Persistent pain or concerning symptoms need clinical review."
+            ),
+            "recommended_actions": [
+                "Have a qualified clinician interpret the X-ray alongside the patient's symptoms.",
+                "Seek clinical review if pain, swelling or difficulty using the affected limb persists or worsens.",
+            ],
+            "specialist": "Orthopedic Surgeon",
+        }
     positive = any("unconfirmed" in f.get("name", "").lower() or f.get("name") == "Fracture suspected" for f in classifier)
     text = "No fracture location was identified by the detector. The selected detector has limited research validation. "
     if positive:
         text += "The image classifier raised an unconfirmed fracture signal, but it cannot identify its location. "
     text += (
-        "This result is inconclusive: a missed or subtle fracture remains possible. "
+        "Uncertain result - review recommended: a missed or subtle fracture remains possible. "
         "It does not establish that the X-ray is normal, that an internal injury is absent, "
         "or that the injury is minor. Clinical urgency cannot be determined from these model scores."
     )

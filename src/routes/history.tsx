@@ -95,7 +95,7 @@ function HistoryPage() {
                 )}
                 <div className="pointer-events-none absolute inset-0 grid-bg opacity-30" />
                 <span className={`absolute end-3 top-3 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider ${urgencyStyle[s.urgency] || urgencyStyle.clear}`}>
-                  {term(s.urgency)}
+                  {s.scan_type === "fracture" && s.urgency === "clear" ? "No fracture detected by AI" : s.scan_type === "fracture" && s.urgency === "review" ? "Review recommended" : term(s.urgency)}
                 </span>
               </div>
               <div className="p-4">

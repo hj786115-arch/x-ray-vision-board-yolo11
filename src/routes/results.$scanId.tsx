@@ -47,8 +47,9 @@ function ResultsPage() {
   }
 
   const allFindings = scan.findings || [];
+  const negativeFracture = scan.scan_type === "fracture" && scan.model_results?.assessment_status === "no_fracture_detected";
   // Split findings: hide "clear/no fracture" entries from chest reports — not clinically useful
-  const findings = allFindings.filter((f) => f.severity !== "clear");
+  const findings = allFindings.filter((f) => f.severity !== "clear" && !(negativeFracture && f.name === "No fracture box localized"));
   const clearFindings = allFindings.filter((f) => f.severity === "clear");
   // Group by confidence tier
   const primaryFindings = findings.filter((f) => scan.scan_type === "fracture" ? Boolean(f.bbox) : f.confidence >= 65);
@@ -179,12 +180,12 @@ function ResultsPage() {
 
         {/* Report */}
         <section className="rounded-2xl border border-border bg-card p-6" style={{ background: "var(--gradient-card)" }}>
-          <div className="flex items-center justify-between rounded-lg border-l-4 border-warning bg-warning/10 px-4 py-3" role="alert">
+          <div className={`flex items-center justify-between rounded-lg border-l-4 px-4 py-3 ${negativeFracture ? "border-primary bg-primary/10" : "border-warning bg-warning/10"}`} role="alert">
             <div className="flex items-center gap-3">
-              <AlertTriangle size={16} className="text-warning" />
+              <AlertTriangle size={16} className={negativeFracture ? "text-primary" : "text-warning"} />
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-warning">{t("res.urgency")}</p>
-                <p className="font-display text-lg font-bold text-warning">{agent.urgency === "review" ? "INCONCLUSIVE — REVIEW REQUIRED" : isUrdu ? term(agent.urgency) : agent.urgency.toUpperCase()}</p>
+                <p className={`font-mono text-[10px] uppercase tracking-widest ${negativeFracture ? "text-primary" : "text-warning"}`}>{negativeFracture ? "AI RESULT" : t("res.urgency")}</p>
+                <p className={`font-display text-lg font-bold ${negativeFracture ? "text-primary" : "text-warning"}`}>{negativeFracture ? "No fracture detected by AI" : scan.scan_type === "fracture" && agent.urgency === "review" ? "Uncertain result — review recommended" : agent.urgency === "review" ? "INCONCLUSIVE — REVIEW REQUIRED" : isUrdu ? term(agent.urgency) : agent.urgency.toUpperCase()}</p>
               </div>
             </div>
             <p className="font-mono text-[10px] text-muted-foreground">{scanId}</p>
@@ -215,7 +216,7 @@ function ResultsPage() {
               <FindingCard key={f.name + i} f={f} delay={i * 80} />
             ))}
             {primaryFindings.length === 0 && (
-              <p className="text-sm text-muted-foreground italic">{scan.scan_type === "fracture" ? "No fracture location detected. This does not rule out a fracture." : t("res.noPrimary")}</p>
+              <p className="text-sm text-muted-foreground italic">{negativeFracture ? "No fracture detected by AI. No fracture box was identified." : scan.scan_type === "fracture" ? "No fracture location detected. This does not rule out a fracture." : t("res.noPrimary")}</p>
             )}
           </div>
 
@@ -223,7 +224,7 @@ function ResultsPage() {
           {secondaryFindings.length > 0 && (
             <>
               <h3 className="mt-5 text-sm font-semibold text-muted-foreground">
-                {scan.scan_type === "fracture" ? "Unconfirmed image-level signals" : t("res.secondary")}
+                {negativeFracture ? "Image classifier result" : scan.scan_type === "fracture" ? "Unconfirmed image-level signals" : t("res.secondary")}
                 {scan.scan_type !== "fracture" && <span className="ms-2 font-mono text-[10px] text-muted-foreground/60 normal-case">{t("res.secondaryRange")}</span>}
               </h3>
               <div className="mt-3 space-y-2">

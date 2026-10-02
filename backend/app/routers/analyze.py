@@ -150,7 +150,8 @@ async def analyze_image(
     processing_time_ms = int((time.perf_counter() - start_time) * 1000)
 
     model_results = {
-        "assessment_version": "2026-10-02-evidence-review",
+        "assessment_version": "2026-10-02-negative-reporting",
+        "assessment_status": ({"clear": "no_fracture_detected", "high": "fracture_suspected"}.get(synthesis.urgency, "review_recommended")) if scan_type == "fracture" else "not_applicable",
         "bone_area": bone_area if scan_type == "fracture" else None,
         "confidence_interpretation": "Model scores are not calibrated diagnostic probabilities or measures of injury severity.",
         "localization_status": ("localized_suspicion" if any(f.get("bbox") for f in raw_findings) else "inconclusive") if scan_type == "fracture" else "not_applicable",
