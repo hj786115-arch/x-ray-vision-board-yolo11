@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     # Optional chat-only key: enabling Health Chat must not alter diet or scans.
     health_chat_api_key: str = ""
-    health_chat_model: str = "openrouter/free"
+    health_chat_model: str = "qwen/qwen3.8-27b:free"
+    health_chat_fallback_models: str = "google/gemma-4-31b-it:free"
     openrouter_model: str = "z-ai/glm-4.5-air:free"
     # Free model IDs get rate limited and retired without warning, which used to
     # take the chatbot and diet planner offline. These are tried in order when

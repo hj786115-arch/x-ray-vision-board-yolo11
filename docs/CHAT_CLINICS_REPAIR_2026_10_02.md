@@ -22,7 +22,9 @@ References: https://www.nhs.uk/symptoms/headaches/ ; https://www.nhs.uk/symptoms
 ## Follow-up repair
 - Nearby healthcare now uses one category-filtered Photon reverse lookup with the requested GPS coordinates and radius. Responses are cached for 10 minutes and filtered/sorted by exact distance. Lahore and Karachi live provider checks returned 50 named listings each in about 9 seconds.
 - Overpass remains a fallback; its request now includes node coordinates (`out body center`) rather than tags-only output, and uses GET for the compact read-only query.
-- Health Chat accepts an optional server-only `HEALTH_CHAT_API_KEY` containing an OpenRouter API key. This enables chat without changing the shared key used by the working diet planner or scan synthesis. `HEALTH_CHAT_MODEL` defaults to `openrouter/free`.
+- Health Chat accepts an optional server-only `HEALTH_CHAT_API_KEY` containing an OpenRouter API key. This enables chat without changing the shared key used by the working diet planner or scan synthesis. `HEALTH_CHAT_MODEL` defaults to `qwen/qwen3.8-27b:free`, with `google/gemma-4-31b-it:free` as a configured free fallback.
 - English and Urdu prompts explicitly follow the latest question and topic changes. Actual AI verification still requires an authenticated OpenRouter account and a configured key.
 - Photon is a named-place search service, not an exhaustive medical directory. Existing Maps buttons remain available.
 - Provider reference: https://github.com/komoot/photon/blob/master/docs/api-v1.md
+
+- Live activation verified the key, but the unrestricted free router returned reasoning-only output on one test and poor Urdu on another. Health Chat now uses the specific free multilingual model chain above with thinking disabled, rejects reasoning-only completions, and strips marked thinking blocks. These strict completion rules are opt-in for Health Chat; existing diet/scan callers retain their behavior.

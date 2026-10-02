@@ -12,6 +12,7 @@ health chatbot and the diet planner, so this client:
 from __future__ import annotations
 
 import logging
+import re
 import time
 
 import httpx
@@ -69,7 +70,7 @@ def _retry_after_seconds(response: httpx.Response, attempt: int) -> float:
     return BACKOFF_SECONDS[min(attempt, len(BACKOFF_SECONDS) - 1)]
 
 
-def _extract_content(data: dict) -> str:
+def _extract_content(data: dict, *, final_answer_only: bool = False) -> str:
     choices = data.get("choices") or []
     if not choices:
         return ""
@@ -86,12 +87,16 @@ def _extract_content(data: dict) -> str:
         )
 
     if isinstance(content, str) and content.strip():
+        if final_answer_only:
+            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL | re.IGNORECASE).strip()
+            if re.match(r"(?:<think>|here['’]s (?:a|my|the) thinking process|(?:analysis|reasoning)\s*:)", content, re.IGNORECASE):
+                return ""
         return content
 
-    # Reasoning models sometimes leave `content` empty and put the answer in
-    # `reasoning`. Better a reasoning dump than a dead chatbot.
+    # Legacy structured callers retain their behavior. Health Chat requires an
+    # actual final answer; provider reasoning must never become the user reply.
     reasoning = message.get("reasoning")
-    if isinstance(reasoning, str) and reasoning.strip():
+    if not final_answer_only and isinstance(reasoning, str) and reasoning.strip():
         return reasoning
 
     return ""
@@ -105,6 +110,7 @@ def complete_chat(
     reasoning: dict | None = None,
     api_key: str | None = None,
     models: list[str] | None = None,
+    final_answer_only: bool = False,
 ) -> str:
     """Send a list of role/content messages and return the assistant text.
 
@@ -215,7 +221,7 @@ def complete_chat(
                 time.sleep(BACKOFF_SECONDS[min(attempt, len(BACKOFF_SECONDS) - 1)])
             continue
 
-        content = _extract_content(data)
+        content = _extract_content(data, final_answer_only=final_answer_only)
         if content:
             choice = (data.get("choices") or [{}])[0]
             if choice.get("finish_reason") == "length":

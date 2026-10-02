@@ -36,6 +36,7 @@ IMPORTANT RULES:
 - Answer the latest question directly and use previous turns only as context.
 - If the user changes topic, address the new topic. Do not repeat a previous answer.
 - Ask one relevant follow-up question when information needed for safe advice is missing.
+- Give only your final answer. Never show internal reasoning, planning, or analysis.
 
 LANGUAGE RULES:
 - Write in simple, everyday English that someone with no medical background understands.
@@ -62,6 +63,7 @@ SYSTEM_PROMPT_UR = """آپ XRayVision AI ہیلتھ اسسٹنٹ ہیں — پا
 - تازہ سوال کا براہ راست جواب دیں، پچھلے پیغامات صرف سیاق و سباق کے لیے استعمال کریں۔
 - موضوع بدلنے پر نئے موضوع کا جواب دیں؛ پچھلا جواب نہ دہرائیں۔
 - محفوظ رہنمائی کے لیے ضروری معلومات کم ہوں تو ایک متعلقہ سوال پوچھیں۔
+- صرف حتمی جواب دیں، اندرونی سوچ، منصوبہ بندی یا تجزیہ ظاہر نہ کریں۔
 
 زبان کے قواعد:
 - ہمیشہ صاف اور آسان اردو میں جواب دیں، ایسی اردو جو ہر عام آدمی سمجھ سکے۔
@@ -142,10 +144,11 @@ def chat_with_health_bot(
         # same JSON-parsing risk if GLM's chain of thought eats the token
         # budget before it reaches the actual structured reply.
         response_text = complete_chat(
-            messages, temperature=0.35, max_tokens=1200,
-            reasoning={"effort": "low", "exclude": True},
+            messages, temperature=0.2, max_tokens=1800,
+            reasoning={"enabled": False, "exclude": True},
             api_key=settings.health_chat_api_key or None,
-            models=[settings.health_chat_model],
+            models=[settings.health_chat_model] + [m.strip() for m in settings.health_chat_fallback_models.split(",") if m.strip()],
+            final_answer_only=True,
         )
     except OpenRouterError as exc:
         logger.error("Chatbot unavailable: %s", exc)

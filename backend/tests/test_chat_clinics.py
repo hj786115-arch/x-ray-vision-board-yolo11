@@ -5,12 +5,24 @@ import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 import httpx
 from app.services.chatbot_service import chat_with_health_bot
-from app.services.openrouter_client import OpenRouterError
+from app.services.openrouter_client import OpenRouterError, _extract_content
 from app.services.basic_health_guidance import basic_health_guidance
 from app.routers import clinics
 
 
 class ChatFallbackTests(unittest.TestCase):
+    def test_chat_does_not_expose_reasoning_only_completion(self):
+        data={'choices':[{'message':{'content':None,'reasoning':'Internal model planning'}}]}
+        self.assertEqual(_extract_content(data,final_answer_only=True),'')
+        # The strict policy is opt-in so existing structured callers do not change.
+        self.assertEqual(_extract_content(data),'Internal model planning')
+
+    def test_chat_removes_think_blocks_and_rejects_unfinished_reasoning(self):
+        def result(content):return {'choices':[{'message':{'content':content}}]}
+        self.assertEqual(_extract_content(result('<think>planning</think>Final answer.'),final_answer_only=True),'Final answer.')
+        self.assertEqual(_extract_content(result('<think>unfinished'),final_answer_only=True),'')
+        self.assertEqual(_extract_content(result("Here's a thinking process: internal notes"),final_answer_only=True),'')
+
     def test_missing_provider_is_explicit_limited_guidance(self):
         with patch('app.services.chatbot_service.complete_chat', side_effect=OpenRouterError('No key', 'Not configured')):
             r=chat_with_health_bot('I have a mild headache')
