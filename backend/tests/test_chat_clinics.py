@@ -5,12 +5,32 @@ import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 import httpx
 from app.services.chatbot_service import chat_with_health_bot
-from app.services.openrouter_client import OpenRouterError, _extract_content
+from app.services.openrouter_client import OpenRouterError, _extract_content, complete_chat
 from app.services.basic_health_guidance import basic_health_guidance
 from app.routers import clinics
 
 
 class ChatFallbackTests(unittest.TestCase):
+    def test_live_chat_switches_model_after_provider_rate_limit(self):
+        limited=httpx.Response(429,json={'error':{'message':'upstream shared pool limit'}})
+        answer=httpx.Response(200,json={'choices':[{'message':{'content':'A real answer from the backup.'}}]})
+        with patch('app.services.openrouter_client.httpx.post',side_effect=[limited,answer]) as post, \
+             patch('app.services.openrouter_client.time.sleep'):
+            reply=complete_chat([{'role':'user','content':'Hello'}],api_key='test-key',
+                                models=['primary:free','backup:free'],final_answer_only=True)
+        self.assertEqual(reply,'A real answer from the backup.')
+        self.assertEqual([c.kwargs['json']['model'] for c in post.call_args_list],['primary:free','backup:free'])
+        self.assertTrue(all('models' not in c.kwargs['json'] for c in post.call_args_list))
+
+    def test_legacy_callers_keep_their_original_retry_routing(self):
+        limited=httpx.Response(429,json={'error':{'message':'busy'}})
+        answer=httpx.Response(200,json={'choices':[{'message':{'content':'Legacy answer.'}}]})
+        with patch('app.services.openrouter_client.httpx.post',side_effect=[limited,answer]) as post, \
+             patch('app.services.openrouter_client.time.sleep'):
+            complete_chat([{'role':'user','content':'Hello'}],api_key='test-key',models=['primary','backup'])
+        self.assertEqual([c.kwargs['json']['model'] for c in post.call_args_list],['primary','primary'])
+        self.assertEqual(post.call_args.kwargs['json']['models'],['primary','backup'])
+
     def test_chat_does_not_expose_reasoning_only_completion(self):
         data={'choices':[{'message':{'content':None,'reasoning':'Internal model planning'}}]}
         self.assertEqual(_extract_content(data,final_answer_only=True),'')

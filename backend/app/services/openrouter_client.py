@@ -150,11 +150,18 @@ def complete_chat(
     last_error: OpenRouterError | None = None
 
     for attempt in range(MAX_ATTEMPTS):
+        attempt_payload = dict(payload)
+        if final_answer_only:
+            # Health Chat must actually reach its backup after a provider pool
+            # limit or an empty final answer. Production returned the same 429
+            # three times despite the models array, so select each retry here.
+            attempt_payload["model"] = models[min(attempt, len(models) - 1)]
+            attempt_payload.pop("models", None)
         try:
             response = httpx.post(
                 OPENROUTER_URL,
                 headers=headers,
-                json=payload,
+                json=attempt_payload,
                 timeout=settings.openrouter_timeout_seconds,
             )
         except httpx.RequestError as exc:

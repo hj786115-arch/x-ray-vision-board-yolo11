@@ -28,3 +28,4 @@ References: https://www.nhs.uk/symptoms/headaches/ ; https://www.nhs.uk/symptoms
 - Provider reference: https://github.com/komoot/photon/blob/master/docs/api-v1.md
 
 - Live activation verified the key, but the unrestricted free router returned reasoning-only output on one test and poor Urdu on another. Health Chat now uses the specific free multilingual model chain above with thinking disabled, rejects reasoning-only completions, and strips marked thinking blocks. These strict completion rules are opt-in for Health Chat; existing diet/scan callers retain their behavior.
+- Production subsequently returned a Qwen upstream shared-pool HTTP 429 on all three attempts despite the model list. Health Chat now explicitly selects its backup on retry instead of repeatedly calling that rate-limited primary. Existing shared callers keep their original routing. This reduces provider-specific failures but cannot remove free-tier quotas or simultaneous outages.
