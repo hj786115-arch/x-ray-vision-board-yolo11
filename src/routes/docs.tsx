@@ -147,7 +147,7 @@ function DocsPage() {
                     color: "bg-green-500/10 text-green-400",
                     points: [
                       "FastAPI for high-performance async REST API endpoints",
-                      "PyTorch, Ultralytics YOLO11, HuggingFace transformers for inference",
+                      "PyTorch, Ultralytics YOLO, HuggingFace transformers for inference",
                       "OpenRouter API as LLM gateway for clinical synthesis reports",
                       "JWT authentication, bcrypt hashing, slowapi rate limiting",
                       "Deployed via Docker on Hugging Face Spaces / Render",
@@ -209,11 +209,11 @@ function DocsPage() {
                     desc: "Pre-trained on NIH ChestX-ray14 dataset. Detects 14 chest conditions including Atelectasis, Cardiomegaly, Effusion, Infiltration, Pneumonia, and Pneumothorax. Outputs confidence probabilities per condition.",
                   },
                   {
-                    name: "YOLO11n",
+                    name: "YOLO fracture profiles",
                     route: "Fracture Detection",
                     icon: Activity,
                     badge: "Object Detection",
-                    desc: "Fine-tuned on bone X-ray datasets for fracture localization. Outputs bounding boxes with confidence scores around fracture regions. Uses fracture-trained ONNX weights from Jesteban247/yolo11-fracture-onnx. Confidence scores require validation on your own images.",
+                    desc: "Research profiles: YOLO26 for pediatric wrists and YOLOv8 for multi-region fracture candidates. Select the bone area explicitly. Both can miss fractures and mark normal structures. Scores are not diagnostic accuracy.",
                   },
                   {
                     name: "ViT (Vision Transformer)",
@@ -271,7 +271,7 @@ function DocsPage() {
                   {
                     step: "2",
                     title: "Select Analysis Route",
-                    desc: "Choose the scan type: Chest Pathology (DenseNet-121), Fracture Detection (YOLO11), or External Wound (ViT). Selecting the correct route ensures the right specialized model runs on your image.",
+                    desc: "Choose the scan type: Chest Pathology (DenseNet-121), Fracture Detection (YOLO), or External Wound (ViT). Selecting the correct route ensures the right specialized model runs on your image.",
                   },
                   {
                     step: "3",
@@ -319,7 +319,7 @@ function DocsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
-                  "Multi-model AI ensemble (DenseNet, YOLO11, ViT, LLM)",
+                  "Multi-model AI ensemble (DenseNet, YOLO, ViT, LLM)",
                   "Chest pathology classification — 14 conditions",
                   "Fracture localization with bounding boxes",
                   "External wound photo classification",
@@ -353,8 +353,8 @@ function DocsPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[
                   { cat: "Frontend", items: ["React 18", "TypeScript", "TanStack Router", "TanStack Query", "Vite", "Vanilla CSS"] },
-                  { cat: "Backend", items: ["Python 3.11+", "FastAPI", "PyTorch", "Ultralytics YOLO11", "HuggingFace transformers", "httpx"] },
-                  { cat: "AI / LLM", items: ["DenseNet-121", "YOLO11n (fracture fine-tuned)", "ViT-Base/16", "OpenRouter API", "Claude / Gemini / GPT-4o"] },
+                  { cat: "Backend", items: ["Python 3.11+", "FastAPI", "PyTorch", "Ultralytics YOLO", "HuggingFace transformers", "httpx"] },
+                  { cat: "AI / LLM", items: ["DenseNet-121", "YOLO fracture profiles (fracture fine-tuned)", "ViT-Base/16", "OpenRouter API", "Claude / Gemini / GPT-4o"] },
                   { cat: "Database", items: ["Supabase", "PostgreSQL", "Row Level Security", "Supabase Storage"] },
                   { cat: "Auth & Security", items: ["JWT Bearer Tokens", "bcrypt hashing", "HTTPS / TLS", "Rate limiting (slowapi)"] },
                   { cat: "Deployment", items: ["Vercel (frontend)", "Hugging Face Spaces", "Render (backend)", "Docker", "GitHub Actions"] },

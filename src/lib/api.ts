@@ -150,10 +150,12 @@ export const analyzeApi = {
     scanType: string,
     sessionLabel?: string,
     notes?: string,
+    boneArea?: string,
   ): Promise<ScanResult> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("scan_type", scanType);
+    if (boneArea) formData.append("bone_area", boneArea);
     if (sessionLabel) formData.append("session_label", sessionLabel);
     if (notes) formData.append("notes", notes);
 

@@ -172,6 +172,7 @@ def _build_scan_pdf(scan: dict) -> bytes:
         "critical": SEV_HIGH,
         "high": SEV_HIGH,
         "medium": SEV_MED,
+        "review": SEV_MED,
         "low": SEV_LOW,
         "clear": SEV_CLEAR,
     }
@@ -179,6 +180,9 @@ def _build_scan_pdf(scan: dict) -> bytes:
         "critical": SEV_HIGH,
         "high": SEV_HIGH,
         "moderate": SEV_MED,
+        "suspected": SEV_MED,
+        "unconfirmed": SEV_MED,
+        "inconclusive": SEV_MED,
         "low": SEV_LOW,
         "clear": SEV_CLEAR,
     }
@@ -285,12 +289,12 @@ def _build_scan_pdf(scan: dict) -> bytes:
     story.append(HRFlowable(width="100%", thickness=1.2, color=BRAND_TEAL, spaceAfter=8))
 
     summary_data = [[
-        Paragraph("URGENCY", S["label"]),
+        Paragraph("REVIEW PRIORITY", S["label"]),
         Paragraph("SCAN TYPE", S["label"]),
         Paragraph("FINDINGS", S["label"]),
         Paragraph("GENERATED", S["label"]),
     ], [
-        Paragraph(f'<font color="#{hex_color(urg_color)}"><b>{upper(urgency)}</b></font>', S["body"]),
+        Paragraph(f'<font color="#{hex_color(urg_color)}"><b>{upper("Inconclusive - review required" if urgency == "review" else urgency)}</b></font>', S["body"]),
         Paragraph(text(scan_type), S["body"]),
         Paragraph(str(len(findings)), S["body"]),
         Paragraph(text(created_at), S["body_small"]),
@@ -330,8 +334,8 @@ def _build_scan_pdf(scan: dict) -> bytes:
     rows = [[
         Paragraph("<b>MODEL</b>", S["mono"]),
         Paragraph("<b>FINDING</b>", S["mono"]),
-        Paragraph("<b>CONF.</b>", S["mono"]),
-        Paragraph("<b>SEVERITY</b>", S["mono"]),
+        Paragraph("<b>SCORE</b>", S["mono"]),
+        Paragraph("<b>STATUS</b>", S["mono"]),
         Paragraph("<b>REGION</b>", S["mono"]),
         Paragraph("<b>ICD-10</b>", S["mono"]),
     ]]

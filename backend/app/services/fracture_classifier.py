@@ -61,31 +61,24 @@ def predict_fracture_presence(image: Image.Image) -> list[dict]:
     top_key = _normalize_label(top_label)
 
     if _is_fracture_label(top_key):
-        if top_conf >= 85:
-            severity, color = "high", "destructive"
-        elif top_conf >= 65:
-            severity, color = "moderate", "warning"
-        else:
-            severity, color = "low", "info"
-
         return [{
-            "name": "Fracture suspected",
+            "name": "Unconfirmed fracture signal (image classifier)",
             "confidence": round(top_conf, 1),
-            "severity": severity,
+            "severity": "unconfirmed",
             "model": "FractureClassifier",
             "region": "Full image",
-            "icd_code": "S02-S92",
-            "color": color,
+            "icd_code": "",
+            "color": "warning",
         }]
 
     return [{
         "name": "No fracture suspected by classifier",
         "confidence": round(top_conf, 1),
-        "severity": "clear",
+        "severity": "unconfirmed",
         "model": "FractureClassifier",
         "region": "Full image",
         "icd_code": "",
-        "color": "success",
+        "color": "warning",
     }]
 
 

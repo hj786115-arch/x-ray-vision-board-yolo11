@@ -50,7 +50,7 @@ class LocalizationTests(unittest.TestCase):
         no_box={'name':'No fracture box localized','confidence':0,'severity':'low'}
         positive={'name':'Fracture suspected','confidence':90,'severity':'high','model':'FractureClassifier'}
         with patch('app.routers.analyze.get_settings',return_value=SimpleNamespace(fracture_classifier_enabled=True)), \
-             patch('app.services.image_preprocess.load_image_from_bytes'), \
+             patch('app.services.image_preprocess.load_image_from_bytes',return_value=np.zeros((100,100,3),dtype=np.uint8)), \
              patch('app.services.image_preprocess.preprocess_for_vit'), \
              patch('app.services.fracture_model.predict_fractures',return_value=[no_box]), \
              patch('app.services.fracture_classifier.predict_fracture_presence',return_value=[positive]):

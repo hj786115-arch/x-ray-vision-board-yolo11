@@ -22,6 +22,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 const urgencyStyle: Record<string, string> = {
+  review: "bg-warning/14 text-warning border-warning/30",
   critical: "bg-destructive/12 text-destructive border-destructive/25",
   high: "bg-destructive/12 text-destructive border-destructive/25",
   medium: "bg-warning/14 text-warning border-warning/30",
@@ -225,10 +226,10 @@ function Dashboard() {
         <div className="mt-5 grid gap-4 md:grid-cols-3">
           {(models.length > 0 ? models : [
             { name: "DenseNet121", task: "Chest pathology", auc: 0.847, color: "bg-primary" },
-            { name: "YOLO11", task: "Fracture detection", auc: 0, color: "bg-secondary" },
+            { name: "Fracture YOLO", task: "Fracture detection", auc: 0, color: "bg-secondary" },
             { name: "ViT", task: "Wound classification", auc: 0.823, color: "bg-info" },
           ]).map((model) => {
-            const Icon = model.name === "DenseNet121" ? Stethoscope : model.name === "YOLO11" ? Bone : Activity;
+            const Icon = model.name === "DenseNet121" ? Stethoscope : model.name === "Fracture YOLO" ? Bone : Activity;
             return (
               <div key={model.name} className="rounded-lg border border-border bg-card p-4 interaction-lift">
                 <div className="flex items-center justify-between gap-3">
@@ -236,7 +237,7 @@ function Dashboard() {
                     <Icon size={16} className="text-primary" />
                     <span className="text-sm font-extrabold">{model.name}</span>
                   </div>
-                  <span className="font-mono text-xs">{model.name === "YOLO11" && model.auc === 0 ? "—" : `${(model.auc * 100).toFixed(1)}%`}</span>
+                  <span className="font-mono text-xs">{model.name === "Fracture YOLO" && model.auc === 0 ? "—" : `${(model.auc * 100).toFixed(1)}%`}</span>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{term(model.task)}</p>
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">

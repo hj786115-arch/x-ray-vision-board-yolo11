@@ -29,6 +29,21 @@
 
 ---
 
+## October 2 review branch — not deployed
+
+This branch prepares two explicitly selected fracture profiles: a pinned YOLO26s
+pediatric-wrist checkpoint and a YOLOv8s multi-region research checkpoint.
+The upload form requires a Bone area selection; automatic anatomical routing has
+not been validated. Independent CLIP routing only selects the image family.
+See [actual comparisons and limitations](docs/DETECTION_VALIDATION_2026_10_02.md).
+False positives and missed fractures remain. **90–95% accuracy on unseen whole-body
+X-rays has not been demonstrated.** No training was performed on the test images.
+Model scores do not measure clinical severity. A missing box is inconclusive.
+The production deployment is unchanged. Automatic deployment is disabled for
+`review/xray-evidence-2026-10-02`; deployment needs the owner's approval.
+The setup notes below record the earlier YOLO11 deployment; current backend
+settings and `download_fracture_model.py` define this review's model profiles.
+
 ## YOLO11 clone: setup and validation
 
 Complete source imported from `ZohaibCodez/x-ray-vision-board` with scoped fracture model and box-display changes. The original repository, UI design and other model implementations are unchanged. New findings are in English. The Live Demo link above is the original deployment.

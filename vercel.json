@@ -8,7 +8,10 @@
       "buildCommand": "VITE_API_URL=/api npm run build",
       "outputDirectory": "dist/client",
       "rewrites": [
-        { "source": "/(.*)", "destination": "/_shell.html" }
+        {
+          "source": "/(.*)",
+          "destination": "/_shell.html"
+        }
       ]
     },
     "backend": {
@@ -17,8 +20,28 @@
     }
   },
   "rewrites": [
-    { "source": "/api", "destination": { "service": "backend" } },
-    { "source": "/api/(.*)", "destination": { "service": "backend" } },
-    { "source": "/(.*)", "destination": { "service": "app" } }
-  ]
+    {
+      "source": "/api",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "app"
+      }
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "review/xray-evidence-2026-10-02": false
+    }
+  }
 }

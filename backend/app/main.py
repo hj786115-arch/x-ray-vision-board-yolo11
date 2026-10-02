@@ -39,9 +39,9 @@ def _preload_models_background():
     try:
         from app.services.fracture_model import _get_model as load_fracture
         load_fracture()
-        logger.info("✅ YOLO11 (Fracture Detection) loaded")
+        logger.info("✅ Fracture YOLO (Fracture Detection) loaded")
     except Exception as e:
-        logger.warning(f"⚠️ YOLO11 failed to preload: {e}")
+        logger.warning(f"⚠️ Fracture YOLO failed to preload: {e}")
 
     try:
         if get_settings().fracture_classifier_enabled:
@@ -89,7 +89,7 @@ def create_app() -> FastAPI:
         title="XRayVision AI",
         description=(
             "Advanced medical diagnostic API using a Hybrid Multi-Model Ensemble. "
-            "DenseNet121 for chest pathology, YOLO11 for fracture detection, "
+            "DenseNet121 for chest pathology, Fracture YOLO for fracture detection, "
             "ViT for wound classification, and OpenRouter GLM 4.5 Air for agentic synthesis."
         ),
         version="2.1.0",
@@ -160,7 +160,7 @@ def create_app() -> FastAPI:
             "status": "healthy",
             "service": "XRayVision AI",
             "version": "2.1.0",
-            "models": ["DenseNet121", "YOLO11", "ViT", "OpenRouter GLM 4.5 Air"],
+            "models": ["DenseNet121", "Fracture YOLO", "ViT", "OpenRouter GLM 4.5 Air"],
         }
 
     @app.get("/health", tags=["health"])

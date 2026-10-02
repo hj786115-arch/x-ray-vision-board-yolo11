@@ -13,6 +13,7 @@ export const Route = createFileRoute("/history")({
 
 const filters = ["All", "Chest", "Fracture", "Wound"] as const;
 const urgencyStyle: Record<string, string> = {
+  review: "bg-warning/15 text-warning border-warning/30",
   critical: "bg-destructive/15 text-destructive border-destructive/30",
   high: "bg-warning/15 text-warning border-warning/30",
   medium: "bg-info/15 text-info border-info/30",

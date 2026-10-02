@@ -77,7 +77,7 @@ async function validateImageFile(
 const types = [
   { id: "auto", labelKey: "an.type.auto", textKey: "an.type.autoText", modelKey: "an.type.autoModel", icon: Sparkles },
   { id: "chest", labelKey: "an.type.chest", textKey: "an.type.chestText", model: "DenseNet121", icon: Stethoscope },
-  { id: "fracture", labelKey: "an.type.fracture", textKey: "an.type.fractureText", model: "YOLO11", icon: Bone },
+  { id: "fracture", labelKey: "an.type.fracture", textKey: "an.type.fractureText", model: "Fracture YOLO", icon: Bone },
   { id: "wound", labelKey: "an.type.wound", textKey: "an.type.woundText", model: "ViT", icon: Activity },
 ] as const satisfies readonly {
   id: string; labelKey: StringKey; textKey: StringKey; model?: string; modelKey?: StringKey; icon: typeof Bone;
@@ -88,6 +88,7 @@ function AnalyzePage() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const [type, setType] = useState<(typeof types)[number]["id"]>("auto");
+  const [boneArea, setBoneArea] = useState("");
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
   const navigate = useNavigate();
@@ -122,7 +123,7 @@ function AnalyzePage() {
     if (!file) return;
 
     analyzeMutation.mutate(
-      { file, scanType: type, sessionLabel: label || undefined, notes: notes || undefined },
+      { file, scanType: type, sessionLabel: label || undefined, notes: notes || undefined, boneArea: boneArea || undefined },
       {
         onSuccess: (result) => {
           navigate({ to: "/results/$scanId", params: { scanId: result.id } });
@@ -286,6 +287,18 @@ function AnalyzePage() {
               })}
             </div>
           </div>
+
+          {(type === "fracture" || type === "auto") && (
+            <div className="mt-5 rounded-lg border border-border bg-surface/55 p-4">
+              <label htmlFor="bone-area" className="text-sm font-semibold">Bone area (for bone X-rays)</label>
+              <select id="bone-area" value={boneArea} onChange={(event) => setBoneArea(event.target.value)} required={type === "fracture"} className="mt-2 block w-full rounded-md border border-border bg-background p-3 text-sm">
+                <option value="">Select area if uploading a bone X-ray</option>
+                <option value="wrist">Wrist — pediatric wrist research model</option>
+                <option value="general">Other bones — arm, leg, hand, finger, foot, shoulder or hip</option>
+              </select>
+              <p className="mt-2 text-xs text-muted-foreground">Research models can miss fractures or mark normal structures. A missing box does not establish a normal X-ray.</p>
+            </div>
+          )}
 
           <div className="mt-7">
             <p className="clinical-kicker">{t("an.step3")}</p>

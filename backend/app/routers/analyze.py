@@ -27,6 +27,7 @@ async def analyze_image(
     file: UploadFile = File(...),
     scan_type: str = Form(...),
     session_label: str = Form(default=""),
+    bone_area: str = Form(default=""),
     notes: str = Form(default=""),
     user_id: str = Depends(get_current_user_id),
 ):
@@ -62,45 +63,33 @@ async def analyze_image(
         "switched": False,
         "note": None,
     }
-    cross_type: str | None = None
     if scan_type == "auto":
         from app.services.image_router import classify_image_detailed
-        details = classify_image_detailed(file_bytes)
-        scan_type = details["scan_type"]
-        routing.update(detected=scan_type, ambiguous=details["ambiguous"], saturation=details["saturation"])
+        try:
+            details = await asyncio.to_thread(classify_image_detailed, file_bytes)
+        except Exception as exc:
+            logger.exception("Image modality router failed")
+            raise HTTPException(status_code=503, detail="Automatic image routing is unavailable. Select the image category manually.") from exc
         if details["ambiguous"]:
-            # Close to the photo/radiograph boundary: get a second opinion from the other family.
-            cross_type = "wound" if scan_type in ("chest", "fracture") else "fracture"
-        logger.info(f"Auto-router classified image as: {scan_type} (ambiguous={details['ambiguous']})")
+            raise HTTPException(status_code=422, detail="Image category is uncertain or unsupported. Select Bone/Fracture, Chest or Wound manually and use a clear image.")
+        scan_type = details["scan_type"]
+        routing.update(details)
+        routing["detected"] = scan_type
+        routing["note"] = "The image category was matched independently of disease scores. Check the selected category before interpreting the result."
+
+    if scan_type == "fracture" and bone_area not in ("wrist", "general"):
+        raise HTTPException(status_code=422, detail="This is a bone X-ray. Select Wrist or Other bones in Bone area before analysis; automatic body-part selection is not reliable enough.")
 
     scan_id = str(uuid.uuid4())
     logger.info(f"Starting analysis {scan_id} | type={scan_type} (requested={original_scan_type}) | user={user_id}")
     start_time = time.perf_counter()
 
     try:
-        primary_coro = _run_routed_ensemble(
-            file_bytes=file_bytes,
-            scan_type=scan_type,
+        primary_result = await _run_routed_ensemble(
+            file_bytes=file_bytes, scan_type=scan_type,
             confidence_threshold=settings.confidence_threshold,
+            bone_area=bone_area,
         )
-        cross_result = None
-        if cross_type:
-            primary_result, cross_result = await asyncio.gather(
-                primary_coro,
-                _run_routed_ensemble(
-                    file_bytes=file_bytes,
-                    scan_type=cross_type,
-                    confidence_threshold=settings.confidence_threshold,
-                ),
-                return_exceptions=True,
-            )
-            if isinstance(primary_result, Exception):
-                raise primary_result
-            if isinstance(cross_result, Exception):
-                logger.warning(f"Cross-check ({cross_type}) failed, ignoring: {cross_result}")
-                cross_result = None
-        else:
-            primary_result = await primary_coro
         raw_findings, model_errors, model_names = primary_result
     except Exception as exc:
         logger.error(f"Model inference failed: {exc}")
@@ -109,19 +98,8 @@ async def analyze_image(
             detail=f"AI model inference failed: {str(exc)}",
         ) from exc
 
-    if cross_type and cross_result:
-        scan_type, raw_findings, model_names = _reconcile_routing(
-            primary_type=scan_type,
-            primary_findings=raw_findings,
-            primary_models=model_names,
-            cross_type=cross_type,
-            cross_findings=cross_result[0],
-            cross_models=cross_result[2],
-            routing=routing,
-        )
-
-    if scan_type == "fracture" and not routing["note"] and _signal(raw_findings, "fracture") == 0:
-        routing["note"] = (
+    if scan_type == "fracture" and not any(f.get("bbox") for f in raw_findings):
+        routing["note"] = (routing.get("note") or "") + " " + (
             "No fracture was localized at the selected threshold. This does not rule out a fracture; "
             "a radiologist should review the original X-ray."
         )
@@ -136,7 +114,7 @@ async def analyze_image(
     except Exception as exc:
         logger.error(f"OpenRouter synthesis failed: {exc}")
         agent_result = {
-            "urgency": "medium",
+            "urgency": "review" if scan_type == "fracture" else "medium",
             "synthesis_text": "AI synthesis temporarily unavailable. Please review findings manually.",
             "recommended_actions": ["Consult a radiologist for interpretation"],
             "specialist": None,
@@ -172,6 +150,10 @@ async def analyze_image(
     processing_time_ms = int((time.perf_counter() - start_time) * 1000)
 
     model_results = {
+        "assessment_version": "2026-10-02-evidence-review",
+        "bone_area": bone_area if scan_type == "fracture" else None,
+        "confidence_interpretation": "Model scores are not calibrated diagnostic probabilities or measures of injury severity.",
+        "localization_status": ("localized_suspicion" if any(f.get("bbox") for f in raw_findings) else "inconclusive") if scan_type == "fracture" else "not_applicable",
         "scan_type": scan_type,
         "auto_detected": original_scan_type == "auto",
         "ensemble_mode": "routed",
@@ -221,6 +203,7 @@ async def _run_routed_ensemble(
     file_bytes: bytes,
     scan_type: str,
     confidence_threshold: float,
+    bone_area: str = "general",
 ) -> tuple[list[dict], list[dict], list[str]]:
     """Run applicable models in parallel.
 
@@ -231,7 +214,7 @@ async def _run_routed_ensemble(
 
     # Strict routing — each scan type uses only its relevant model(s)
     # chest    → DenseNet121 only  (YOLO on chest produces irrelevant fracture labels)
-    # fracture → YOLO11 plus optional fracture classifier       (DenseNet121 is chest-only; on an extremity X-ray it
+    # fracture → selected YOLO profile plus optional fracture classifier       (DenseNet121 is chest-only; on an extremity X-ray it
     #                               emits nonsensical chest pathologies like "Pneumonia")
     # wound    → ViT only
     # DenseNet121 is multi-label (18 independent sigmoids); on diffuse pathology many
@@ -240,14 +223,13 @@ async def _run_routed_ensemble(
     CHEST_THRESHOLD    = max(confidence_threshold, 0.60)   # raise bar for chest: 60%
     FRACTURE_THRESHOLD = get_settings().fracture_confidence_threshold
     MAX_CHEST_FINDINGS = 6
-    MAX_FRACTURE_FINDINGS = 5
 
     if scan_type == "chest":
         tasks.append(("DenseNet121", asyncio.create_task(
             asyncio.to_thread(_run_chest, file_bytes, CHEST_THRESHOLD))))
     elif scan_type == "fracture":
         tasks.append((f"{get_settings().yolo_model_name}-Fracture", asyncio.create_task(
-            asyncio.to_thread(_run_fracture, file_bytes, FRACTURE_THRESHOLD))))
+            asyncio.to_thread(_run_fracture, file_bytes, FRACTURE_THRESHOLD, bone_area))))
     else:  # wound
         tasks.append(("WoundClassifier", asyncio.create_task(
             asyncio.to_thread(_run_wound, file_bytes, confidence_threshold))))
@@ -266,12 +248,6 @@ async def _run_routed_ensemble(
         # chest pathologies doesn't bury the clinically relevant findings.
         if name == "DenseNet121":
             result = sorted(result, key=lambda f: f.get("confidence", 0), reverse=True)[:MAX_CHEST_FINDINGS]
-        # Same idea for fracture: a tiled watermark or repetitive pattern can
-        # make YOLO fire many separate low-confidence boxes (one per tile) —
-        # genuinely non-overlapping, so NMS doesn't merge them. Keep only the
-        # strongest handful.
-        if name == f"{get_settings().yolo_model_name}-Fracture" and len(result) > MAX_FRACTURE_FINDINGS:
-            result = sorted(result, key=lambda f: f.get("confidence", 0), reverse=True)[:MAX_FRACTURE_FINDINGS]
         raw_findings.extend(result)
 
     if not raw_findings and model_errors:
@@ -279,6 +255,8 @@ async def _run_routed_ensemble(
         raise RuntimeError(error_text)
 
     raw_findings.sort(key=lambda f: f.get("confidence", 0), reverse=True)
+    if scan_type == "fracture":
+        model_names = list(dict.fromkeys(f.get("model", "Fracture detector") for f in raw_findings))
     return raw_findings, model_errors, model_names
 
 
@@ -289,15 +267,6 @@ def _run_chest(file_bytes: bytes, confidence_threshold: float) -> list[dict]:
     return predict_chest_pathologies(preprocessed, confidence_threshold)
 
 
-_SWITCH_MIN_SIGNAL = 50.0    # cross-check must be at least this confident to take over
-_SWITCH_MAX_PRIMARY = 50.0   # ...and the original route must be weaker than this
-# Lowered from 60 — tested against a real client image (a stylized, heavily
-# colour-graded fracture photo) where the fracture classifier correctly flagged
-# it with real but moderate confidence while the wound classifier's own guess
-# was weak but nonzero. Missing a real fracture by sitting on a high bar costs
-# far more than occasionally cross-checking a true wound photo a bit too
-# eagerly, so the bar for "trust the cross-check" should lean permissive.
-
 _INACTIVE_FRACTURE_WORDS = ("prior", "healed", "old finding", "no fracture", "not fracture")
 
 
@@ -306,7 +275,7 @@ def _is_active_fracture(finding: dict) -> bool:
     return "fracture" in name and not any(w in name for w in _INACTIVE_FRACTURE_WORDS)
 
 
-def _run_fracture(file_bytes: bytes, confidence_threshold: float) -> list[dict]:
+def _run_fracture(file_bytes: bytes, confidence_threshold: float, bone_area: str = "general") -> list[dict]:
     """Keep localization and the unchanged classifier's second opinion independent.
 
     Bright pixels, an implant, or classifier disagreement cannot establish healing.
@@ -315,13 +284,15 @@ def _run_fracture(file_bytes: bytes, confidence_threshold: float) -> list[dict]:
     from app.services.fracture_model import predict_fractures
 
     image = image_preprocess.load_image_from_bytes(file_bytes)
-    yolo_findings = predict_fractures(image, confidence_threshold)
+    yolo_findings = predict_fractures(image, confidence_threshold, profile=bone_area)
     findings = [dict(f) for f in yolo_findings if f.get("bbox")]
     has_box = bool(findings)
     if get_settings().fracture_classifier_enabled:
         try:
             from app.services.fracture_classifier import predict_fracture_presence
-            classifier_findings = predict_fracture_presence(image_preprocess.preprocess_for_vit(file_bytes))
+            from PIL import Image
+            import cv2
+            classifier_findings = predict_fracture_presence(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)))
             for finding in classifier_findings:
                 if has_box and _is_active_fracture(finding):
                     continue
@@ -331,59 +302,6 @@ def _run_fracture(file_bytes: bytes, confidence_threshold: float) -> list[dict]:
     if not has_box:
         findings.extend(yolo_findings)
     return sorted(findings, key=lambda item: item.get("confidence", 0), reverse=True)
-
-
-def _signal(findings: list[dict], kind: str) -> float:
-    """Strongest real (non-clear, non-downgraded) finding for a model family."""
-    best = 0.0
-    for f in findings:
-        if f.get("severity") in ("clear", None):
-            continue
-        if kind == "fracture" and not (f.get("bbox") or f.get("model") == "FractureClassifier"):
-            continue
-        if kind == "fracture" and not _is_active_fracture(f):
-            continue
-        if kind == "wound" and f.get("model") != "WoundClassifier":
-            continue
-        if kind == "chest" and f.get("model") != "DenseNet121":
-            continue
-        best = max(best, float(f.get("confidence", 0)))
-    return best
-
-
-def _reconcile_routing(
-    *,
-    primary_type: str,
-    primary_findings: list[dict],
-    primary_models: list[str],
-    cross_type: str,
-    cross_findings: list[dict],
-    cross_models: list[str],
-    routing: dict,
-) -> tuple[str, list[dict], list[str]]:
-    """Pick one report when both a radiograph and a wound model looked at the image.
-
-    Reporting both leads to contradictory output (e.g. "98% fracture" next to
-    "no wound"). The cross-check only takes over when it is clearly confident
-    and the original route found little.
-    """
-    routing["cross_checked"] = cross_type
-    primary_signal = _signal(primary_findings, primary_type)
-    cross_signal = _signal(cross_findings, cross_type)
-    logger.info(f"Routing: {primary_type}={primary_signal:.1f} vs {cross_type}={cross_signal:.1f}")
-
-    if cross_signal >= _SWITCH_MIN_SIGNAL and primary_signal < _SWITCH_MAX_PRIMARY:
-        routing["switched"] = True
-        routing["note"] = (
-            "This looks like a photo of a wound rather than a radiograph, so it was analyzed "
-            "with the wound model."
-            if cross_type == "wound"
-            else "This looks like a radiograph rather than a wound photo, so it was analyzed "
-            "with the fracture model."
-        )
-        return cross_type, cross_findings, cross_models
-
-    return primary_type, primary_findings, primary_models
 
 
 def _run_wound(file_bytes: bytes, confidence_threshold: float) -> list[dict]:

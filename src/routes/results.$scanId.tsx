@@ -51,9 +51,9 @@ function ResultsPage() {
   const findings = allFindings.filter((f) => f.severity !== "clear");
   const clearFindings = allFindings.filter((f) => f.severity === "clear");
   // Group by confidence tier
-  const primaryFindings   = findings.filter((f) => f.confidence >= 65);
-  const secondaryFindings = findings.filter((f) => f.confidence >= 50 && f.confidence < 65);
-  const borderline        = findings.filter((f) => f.confidence < 50);
+  const primaryFindings = findings.filter((f) => scan.scan_type === "fracture" ? Boolean(f.bbox) : f.confidence >= 65);
+  const secondaryFindings = findings.filter((f) => scan.scan_type === "fracture" ? !f.bbox : f.confidence >= 50 && f.confidence < 65);
+  const borderline = scan.scan_type === "fracture" ? [] : findings.filter((f) => f.confidence < 50);
   const agent = scan.agent_synthesis;
   const lowConf = findings.some((f) => f.confidence < 60);
   const routing = scan.model_results?.routing as { note?: string | null } | undefined;
@@ -126,14 +126,16 @@ function ResultsPage() {
                   <span className="font-mono text-xs">{t("res.noImage")}</span>
                 </div>
               )}
-              {showHeatmap && (
+              {showHeatmap && boxedFindings.map((finding, index) => (
                 <div
-                  className="pointer-events-none absolute inset-0 mix-blend-screen"
+                  key={`highlight-${index}`}
+                  className="pointer-events-none absolute bg-warning/25 mix-blend-screen"
                   style={{
-                    background: "radial-gradient(circle at 42% 47%, rgba(255,71,87,0.45), transparent 30%), radial-gradient(circle at 68% 61%, rgba(255,181,71,0.4), transparent 25%)",
+                    left: `${finding.bbox!.x}%`, top: `${finding.bbox!.y}%`,
+                    width: `${finding.bbox!.w}%`, height: `${finding.bbox!.h}%`,
                   }}
                 />
-              )}
+              ))}
               {showBoxes && boxedFindings.map((primaryBox, index) => (
                   <div
                     key={`${primaryBox.name}-${index}`}
@@ -182,11 +184,15 @@ function ResultsPage() {
               <AlertTriangle size={16} className="text-warning" />
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-widest text-warning">{t("res.urgency")}</p>
-                <p className="font-display text-lg font-bold text-warning">{isUrdu ? term(agent.urgency) : agent.urgency.toUpperCase()}</p>
+                <p className="font-display text-lg font-bold text-warning">{agent.urgency === "review" ? "INCONCLUSIVE — REVIEW REQUIRED" : isUrdu ? term(agent.urgency) : agent.urgency.toUpperCase()}</p>
               </div>
             </div>
             <p className="font-mono text-[10px] text-muted-foreground">{scanId}</p>
           </div>
+
+          {scan.scan_type === "fracture" && <p className="mt-3 text-xs text-muted-foreground">
+            Model scores are not diagnostic accuracy or injury severity. A missing box does not rule out a fracture.
+          </p>}
 
           {routing?.note && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
@@ -203,13 +209,13 @@ function ResultsPage() {
           )}
 
           {/* Primary findings ≥ 65% */}
-          <h3 className="mt-6 text-sm font-semibold text-muted-foreground">{t("res.primary")}</h3>
+          <h3 className="mt-6 text-sm font-semibold text-muted-foreground">{scan.scan_type === "fracture" ? "Localized fracture candidates" : t("res.primary")}</h3>
           <div className="mt-3 space-y-3">
             {primaryFindings.map((f, i) => (
               <FindingCard key={f.name + i} f={f} delay={i * 80} />
             ))}
             {primaryFindings.length === 0 && (
-              <p className="text-sm text-muted-foreground italic">{t("res.noPrimary")}</p>
+              <p className="text-sm text-muted-foreground italic">{scan.scan_type === "fracture" ? "No fracture location detected. This does not rule out a fracture." : t("res.noPrimary")}</p>
             )}
           </div>
 
@@ -217,8 +223,8 @@ function ResultsPage() {
           {secondaryFindings.length > 0 && (
             <>
               <h3 className="mt-5 text-sm font-semibold text-muted-foreground">
-                {t("res.secondary")}
-                <span className="ms-2 font-mono text-[10px] text-muted-foreground/60 normal-case">{t("res.secondaryRange")}</span>
+                {scan.scan_type === "fracture" ? "Unconfirmed image-level signals" : t("res.secondary")}
+                {scan.scan_type !== "fracture" && <span className="ms-2 font-mono text-[10px] text-muted-foreground/60 normal-case">{t("res.secondaryRange")}</span>}
               </h3>
               <div className="mt-3 space-y-2">
                 {secondaryFindings.map((f, i) => (

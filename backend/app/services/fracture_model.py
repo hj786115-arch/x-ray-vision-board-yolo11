@@ -1,6 +1,7 @@
 """Fracture-only YOLO detection, with boxes in original-image coordinates.
 
-Default weights: Jesteban247/yolo11-fracture-onnx, pinned by the download script.
+Profiles: multi-region fracture candidate and pediatric-wrist specialist.
+Both checkpoints are pinned by revision and SHA256 in the download script.
 Ultralytics handles letterboxing, NMS, and mapping xyxy back to the source image.
 A score is model confidence, not fracture severity or clinical accuracy.
 """
@@ -8,10 +9,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import os
 import numpy as np
 
 logger = logging.getLogger(__name__)
-_model = None
+_models = {}
 
 
 def _is_fracture_class(name: str) -> bool:
@@ -21,14 +23,17 @@ def _is_fracture_class(name: str) -> bool:
     return key in {"fracture", "fractured", "bone_fracture"} or key.endswith("_fracture")
 
 
-def _get_model():
-    global _model
-    if _model is None:
+def _get_model(profile: str = "general"):
+    if profile not in _models:
         from ultralytics import YOLO
+        import ultralytics.utils.torch_utils as torch_utils
+        # Ultralytics otherwise overrides OMP_NUM_THREADS with eight threads,
+        # oversubscribing the small free CPU service.
+        torch_utils.NUM_THREADS = max(1, int(os.environ.get("OMP_NUM_THREADS", "2")))
         from app.config import get_settings
 
         settings = get_settings()
-        weights = Path(settings.yolo_weights_path)
+        weights = Path(settings.wrist_yolo_weights_path if profile == "wrist" else settings.yolo_weights_path)
         if not weights.is_file():
             raise FileNotFoundError(
                 f"Fracture weights missing: {weights}. Run python download_fracture_model.py."
@@ -38,9 +43,9 @@ def _get_model():
         names = model.names
         if not any(_is_fracture_class(str(name)) for name in names.values()):
             raise ValueError("This detector has no fracture class. Use fracture-trained weights.")
-        _model = model
-        logger.info("Loaded %s fracture detector from %s", settings.yolo_model_name, weights)
-    return _model
+        _models[profile] = model
+        logger.info("Loaded %s fracture detector from %s", settings.wrist_yolo_model_name if profile == "wrist" else settings.yolo_model_name, weights)
+    return _models[profile]
 
 
 def _normalized_box(xyxy, width: int, height: int) -> dict | None:
@@ -59,15 +64,16 @@ def _normalized_box(xyxy, width: int, height: int) -> dict | None:
     }
 
 
-def predict_fractures(image: np.ndarray, confidence_threshold: float = 0.40) -> list[dict]:
+def predict_fractures(image: np.ndarray, confidence_threshold: float = 0.40, profile: str = "general") -> list[dict]:
     from app.config import get_settings
 
     settings = get_settings()
-    model = _get_model()
+    model = _get_model(profile)
+    model_name = settings.wrist_yolo_model_name if profile == "wrist" else settings.yolo_model_name
     names = model.names
     class_ids = [i for i, name in names.items() if _is_fracture_class(str(name))]
-    # The shipped ONNX export has a fixed 640x640 input; the old 1280 setting
-    # is incompatible. The inference library reverses padding before returning boxes.
+    # Keep the reviewed training resolution. Ultralytics reverses letterbox
+    # padding and scaling before returning original-image boxes.
     results = model(
         image, conf=confidence_threshold, imgsz=settings.yolo_image_size,
         classes=class_ids, iou=0.45, verbose=False, device="cpu",
@@ -87,7 +93,7 @@ def predict_fractures(image: np.ndarray, confidence_threshold: float = 0.40) -> 
                 continue
             findings.append({
                 "name": "Fracture suspected", "confidence": round(score * 100, 1),
-                "severity": "moderate", "model": settings.yolo_model_name,
+                "severity": "suspected", "model": model_name,
                 "region": "Localized region", "icd_code": "", "bbox": bbox,
                 "color": "warning",
             })
@@ -95,7 +101,7 @@ def predict_fractures(image: np.ndarray, confidence_threshold: float = 0.40) -> 
     if not findings:
         findings.append({
             "name": "No fracture box localized", "confidence": 0.0,
-            "severity": "low", "model": settings.yolo_model_name,
+            "severity": "inconclusive", "model": model_name,
             "region": "Full image", "icd_code": "", "color": "warning",
         })
     return findings

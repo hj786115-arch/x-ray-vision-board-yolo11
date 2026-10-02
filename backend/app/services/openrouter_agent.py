@@ -29,6 +29,10 @@ def synthesize_report(
     Returns:
         Dict with urgency, synthesis_text, recommended_actions, specialist.
     """
+    if scan_type == "fracture":
+        from app.services.fracture_assessment import fracture_assessment
+        return fracture_assessment(findings)
+
     prompt = _build_synthesis_prompt(findings, scan_type, patient_notes)
 
     try:
@@ -207,6 +211,10 @@ def _try_json_parse(text: str):
 
 def _fallback_synthesis(findings: list[dict], scan_type: str) -> dict:
     """Generate a basic synthesis when OpenRouter is unavailable."""
+    if scan_type == "fracture":
+        from app.services.fracture_assessment import fracture_assessment
+        return fracture_assessment(findings)
+
     if not findings or all(f.get("severity") == "clear" for f in findings):
         return {
             "urgency": "clear",

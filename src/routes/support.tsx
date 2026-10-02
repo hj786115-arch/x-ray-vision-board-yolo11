@@ -69,7 +69,7 @@ const team = [
     initials: "HA",
     id: "2022F-MUL-BSSWE-027",
     color: "bg-emerald-600 text-white",
-    desc: "FastAPI backend, AI model integration (DenseNet-121, YOLO11, ViT), OpenRouter LLM synthesis pipeline, and Supabase database design.",
+    desc: "FastAPI backend, AI model integration (DenseNet-121, YOLO26, ViT), OpenRouter LLM synthesis pipeline, and Supabase database design.",
   },
 ];
 

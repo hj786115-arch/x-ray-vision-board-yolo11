@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS scans (
   session_label TEXT,
   notes TEXT,
   image_url TEXT NOT NULL DEFAULT '',
-  urgency TEXT CHECK (urgency IN ('critical', 'high', 'medium', 'low', 'clear')),
+  urgency TEXT CHECK (urgency IN ('critical', 'high', 'medium', 'low', 'clear', 'review')),
   findings JSONB NOT NULL DEFAULT '[]',
   agent_synthesis TEXT,
   agent_actions JSONB DEFAULT '[]',

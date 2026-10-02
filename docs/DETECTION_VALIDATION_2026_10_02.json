@@ -1,0 +1,80 @@
+[
+  {
+    "model": "fracture_yolo11",
+    "group": "graz-eval",
+    "threshold": 0.4,
+    "iou": 0.5,
+    "tp": 25,
+    "fp": 2,
+    "fn": 8,
+    "negative_images": 5,
+    "negative_images_with_box": 1,
+    "positive_images": 25,
+    "localized_positive_images": 21
+  },
+  {
+    "model": "fracture_yolo11",
+    "group": "graz-confirm",
+    "threshold": 0.4,
+    "iou": 0.5,
+    "tp": 25,
+    "fp": 7,
+    "fn": 5,
+    "negative_images": 9,
+    "negative_images_with_box": 3,
+    "positive_images": 21,
+    "localized_positive_images": 20
+  },
+  {
+    "model": "Crimson-Dawn-grazpedwri-yolo26-checkpoints",
+    "group": "graz-eval",
+    "threshold": 0.4,
+    "iou": 0.5,
+    "tp": 29,
+    "fp": 0,
+    "fn": 4,
+    "negative_images": 5,
+    "negative_images_with_box": 0,
+    "positive_images": 25,
+    "localized_positive_images": 24
+  },
+  {
+    "model": "Crimson-Dawn-grazpedwri-yolo26-checkpoints",
+    "group": "graz-confirm",
+    "threshold": 0.4,
+    "iou": 0.5,
+    "tp": 28,
+    "fp": 3,
+    "fn": 2,
+    "negative_images": 9,
+    "negative_images_with_box": 0,
+    "positive_images": 21,
+    "localized_positive_images": 21
+  },
+  {
+    "model": "fracture_yolo11",
+    "group": "fracatlas-eval",
+    "threshold": 0.4,
+    "iou": 0.5,
+    "tp": 2,
+    "fp": 12,
+    "fn": 28,
+    "negative_images": 33,
+    "negative_images_with_box": 6,
+    "positive_images": 23,
+    "localized_positive_images": 1
+  },
+  {
+    "model": "MMMJavid-xray-fracture-localizer",
+    "group": "fracatlas-eval",
+    "threshold": 0.4,
+    "iou": 0.5,
+    "tp": 25,
+    "fp": 11,
+    "fn": 5,
+    "negative_images": 33,
+    "negative_images_with_box": 8,
+    "positive_images": 23,
+    "localized_positive_images": 20
+  }
+]

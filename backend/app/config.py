@@ -53,8 +53,10 @@ class Settings(BaseSettings):
     allowed_origins: str = ""
 
     # Model Config
-    yolo_weights_path: str = "models/fracture_yolo11.onnx"
-    yolo_model_name: str = "YOLO11"
+    yolo_weights_path: str = "models/fracture_multiregion.pt"
+    wrist_yolo_weights_path: str = "models/fracture_yolo26.pt"
+    yolo_model_name: str = "YOLOv8-MultiRegion"
+    wrist_yolo_model_name: str = "YOLO26-Wrist"
     yolo_image_size: int = 640
     fracture_confidence_threshold: float = 0.40
     allow_generic_yolo_weights: bool = False
